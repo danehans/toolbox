@@ -53,9 +53,4 @@ kubectl delete ns/istio-system
 
 echo "istio-system namespace deleted."
 
-# Remove the configuration files
-rm -rf istio-cni-config.yaml istio-ztunnel-config.yaml istiod-config.yaml
-
-echo "Removed Istio configuration files."
-
 echo "Istio successfully uninstalled!"

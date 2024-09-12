@@ -2,8 +2,6 @@
 
 set -e
 
-# The version of Istio to install.
-ISTIO_VERSION=${ISTIO_VERSION:-"1.23.0"}
 # The repo to use for pulling Istio container images.
 ISTIO_REPO=${ISTIO_REPO:-"docker.io/istio"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for Istio control-plane component deployment rollout to complete.
@@ -41,7 +39,7 @@ fi
 # Check if required CLI tools are installed.
 for cmd in kubectl helm; do
   if ! command_exists $cmd; then
-    echo "$CMD is not installed. Please install $cmd before running this script."
+    echo "$cmd is not installed. Please install $cmd before running this script."
     exit 1
   fi
 done
@@ -146,6 +144,16 @@ EOF
 
   # Wait for the ztunnel daemonset rollout to complete.
   ds_rollout_status "ztunnel" "istio-system"
+
+  # Remove the ambient installation configuration file
+  rm -rf istio-cni-config.yaml istio-ztunnel-config.yaml
+
+  echo "Removed ambient installation configuration files."
 fi
+
+# Remove the Istiod installation configuration file
+rm -rf istiod-config.yaml
+
+echo "Removed Istiod installation configuration file."
 
 echo "Istio successfully installed!"

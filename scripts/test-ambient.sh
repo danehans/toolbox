@@ -1,15 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Check if istioctl and kubectl binaries exist
-if ! command -v istioctl &> /dev/null; then
-  echo "istioctl could not be found. Please install it."
-  exit 1
-fi
+set -e
 
-if ! command -v kubectl &> /dev/null; then
-  echo "kubectl could not be found. Please install it."
-  exit 1
-fi
+# Source the utility functions.
+source ./scripts/utils.sh
 
 # Set default back-off time, max retries, and namespace
 BACKOFF_TIME=${BACKOFF_TIME:-5}
@@ -17,6 +11,17 @@ MAX_RETRIES=${MAX_RETRIES:-12}
 NS=${NS:-default}  # User-facing namespace variable, defaults to "default"
 WAYPOINT_STATS_KEY="http.inbound_0.0.0.0_80;.rbac.allowed"
 CURL_SUCCESS_COUNT=0
+
+# Check if required CLI tools are installed.
+for cmd in kubectl istioctl; do
+  if ! command_exists $cmd; then
+    echo "$cmd is not installed. Please install $cmd before running this script."
+    exit 1
+  fi
+done
+
+# If istioctl is installed, check its version
+check_istio_version
 
 # Function to find client and server nodes
 set_nodes() {

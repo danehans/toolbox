@@ -14,6 +14,21 @@ Ensure the following tools are installed:
 
 ## Overview of Scripts
 
+### Create a Kind Cluster
+
+The `kind-cluster.sh` script creates or deletes a Kubernetes kind cluster based on the provided argument. The cluster consists of 1 control-plane and 2 worker nodes.
+
+#### Usage
+
+```bash
+./scripts/kind-cluster.sh [create|delete]
+```
+
+#### Arguments
+
+- `create`: Create the kind cluster.
+- `delete`: Delete the cluster.
+
 ### Install Istio
 
 The `install-istio.sh` script automates the installation of Istio on a Kubernetes cluster. It handles the installation of the Istio control plane, ambient mesh configuration, and enables various Istio features such as gateways, telemetry, and ingress.
