@@ -34,10 +34,15 @@ fi
 CLUSTER_NAME="kind"
 
 # Check if the cluster already exists
-CLUSTER_EXISTS=$(kind get clusters | grep -w "$CLUSTER_NAME")
+CLUSTER_EXISTS=$(kind get clusters)
+
+# Handle the case where no clusters are found
+if [[ "$CLUSTER_EXISTS" == "No kind clusters found." ]]; then
+  CLUSTER_EXISTS=""
+fi
 
 if [ "$ACTION" == "create" ]; then
-  if [ -n "$CLUSTER_EXISTS" ]; then
+  if echo "$CLUSTER_EXISTS" | grep -qw "$CLUSTER_NAME"; then
     echo "Cluster '$CLUSTER_NAME' already exists. Exiting."
     exit 1
   fi
