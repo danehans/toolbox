@@ -5,12 +5,18 @@ set -e
 # Source the utility functions.
 source ./scripts/utils.sh
 
-# Set default back-off time, max retries, and namespace
-BACKOFF_TIME=${BACKOFF_TIME:-5}
-MAX_RETRIES=${MAX_RETRIES:-12}
-NS=${NS:-default}  # User-facing namespace variable, defaults to "default"
+# The stats key to check for the waypoint proxy.
 WAYPOINT_STATS_KEY="http.inbound_0.0.0.0_80;.rbac.allowed"
 CURL_SUCCESS_COUNT=0
+
+# Validate input argument
+set_action() {
+  if [ "$1" != "apply" ] && [ "$1" != "delete" ]; then
+    echo "Invalid action. Use 'apply' or 'delete'."
+    exit 1
+  fi
+  action=$1
+}
 
 # Check if required CLI tools are installed.
 for cmd in kubectl istioctl; do
@@ -52,15 +58,6 @@ set_nodes() {
 
   echo "Client Node: $client_node"
   echo "Server Node: $server_node"
-}
-
-# Validate input argument
-set_action() {
-  if [ "$1" != "apply" ] && [ "$1" != "delete" ]; then
-    echo "Invalid action. Use 'apply' or 'delete'."
-    exit 1
-  fi
-  action=$1
 }
 
 # Ensure the namespace exists and manage labels
@@ -214,7 +211,7 @@ check_waypoint_stats() {
 
   retries=0
   while [ $retries -lt $MAX_RETRIES ]; do
-    # Get the rbac.allowed value from the waypoint deployment
+    # Get the $WAYPOINT_STATS_KEY value from the waypoint deployment
     allowed_value=$(kubectl exec deployment/waypoint -n "$NS" -c istio-proxy -- pilot-agent request GET stats | grep "$WAYPOINT_STATS_KEY" | awk '{print $2}')
 
     # Check if stat is empty
@@ -278,4 +275,3 @@ main() {
 
 # Execute main function
 main "$@"
-

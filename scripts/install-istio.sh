@@ -4,8 +4,6 @@ set -e
 
 # The repo to use for pulling Istio container images.
 ISTIO_REPO=${ISTIO_REPO:-"docker.io/istio"}
-# A time unit, e.g. 1s, 2m, 3h, to wait for Istio control-plane component deployment rollout to complete.
-ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"5m"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
