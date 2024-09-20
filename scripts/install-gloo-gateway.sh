@@ -6,6 +6,8 @@ set -e
 ISTIO_REPO=${ISTIO_REPO:-"docker.io/istio"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for Istio control-plane component deployment rollout to complete.
 ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"5m"}
+# The localation of the Helm chart. Specify the full path to the tarball for local charts.
+HELM_CHART=${HELM_CHART:-"gloo/gloo"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
@@ -31,12 +33,14 @@ fi
 kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
   { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.0.0" | kubectl apply -f -; }
 
-# Add Gloo Gateway helm repo.
-helm repo add gloo https://storage.googleapis.com/solo-public-helm
-helm repo update
+if [[ $HELM_CHART == "gloo/gloo" ]]; then
+  # Add Gloo Gateway helm repo.
+  helm repo add gloo https://storage.googleapis.com/solo-public-helm
+  helm repo update
+fi
 
 # Install Gloo Gateway.
-helm upgrade --install gloo-gateway gloo/gloo \
+helm upgrade --install gloo-gateway $HELM_CHART \
 -n gloo-system \
 --create-namespace \
 --version=$GLOO_GTW_VERSION \
