@@ -135,6 +135,7 @@ test_gloo_gtw_connectivity() {
   fi
 
   retries=0
+  sleep $BACKOFF_TIME
   while [ $retries -lt $MAX_RETRIES ]; do
     # Send a curl request and capture the response
     response=$(curl -s -H "host: www.example.com:8080" http://$gtw_ip:8080/headers)
