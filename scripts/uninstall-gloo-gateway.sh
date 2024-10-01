@@ -17,8 +17,7 @@ done
 helm uninstall gloo-gateway -n gloo-system
 
 # Uninstall Kubernetes Gateway CRDs
-kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
-  { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.0.0" | kubectl delete -f -; }
+kubectl delete -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
 
 echo "Gateway API CRDs deleted."
 

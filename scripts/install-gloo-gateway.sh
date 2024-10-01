@@ -30,8 +30,7 @@ if [[ "$minor_version" -lt 17 ]] || [[ "$minor_version" -eq 17 && "$patch_versio
 fi
 
 # Install Kubernetes Gateway CRDs.
-kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
-  { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.0.0" | kubectl apply -f -; }
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
 
 if [[ $HELM_CHART == "gloo/gloo" ]]; then
   # Add Gloo Gateway helm repo.

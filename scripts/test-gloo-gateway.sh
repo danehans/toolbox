@@ -27,6 +27,61 @@ set_action() {
   action=$1
 }
 
+# Check if the namespace "metallb-system" exists and handle accordingly
+check_and_manage_metallb() {
+  if [ "$action" == "apply" ]; then
+    if ! kubectl get namespace metallb-system >/dev/null 2>&1; then
+      echo "Namespace 'metallb-system' does not exist. Applying MetalLB configuration..."
+      if ! ./scripts/metallb.sh apply; then
+        echo "Error: Failed to apply MetalLB configuration."
+        exit 1
+      fi
+      echo "MetalLB configuration applied successfully."
+    else
+      echo "Namespace 'metallb-system' exists. Checking the status of resources."
+
+      # Check if the Deployment "controller" exists
+      if kubectl get deployment -n metallb-system controller >/dev/null 2>&1; then
+        available_status=$(kubectl get deployment -n metallb-system controller -o jsonpath='{.status.conditions[?(@.type=="Available")].status}')
+
+        if [[ "$available_status" != "True" ]]; then
+          echo "Error: Deployment 'controller' is not in 'Available' status."
+          exit 1
+        fi
+        echo "Deployment 'controller' is available."
+      else
+        echo "Error: Deployment 'controller' does not exist in 'metallb-system'."
+        exit 1
+      fi
+
+      # Check if the DaemonSet "speaker" exists
+      if kubectl get daemonset -n metallb-system speaker >/dev/null 2>&1; then
+        number_ready=$(kubectl get daemonset -n metallb-system speaker -o jsonpath='{.status.numberReady}')
+
+        if [[ "$number_ready" -lt 1 ]]; then
+          echo "Error: DaemonSet 'speaker' has insufficient ready pods (numberReady < 1)."
+          exit 1
+        fi
+        echo "DaemonSet 'speaker' has $number_ready ready pods."
+      else
+        echo "Error: DaemonSet 'speaker' does not exist in 'metallb-system'."
+        exit 1
+      fi
+    fi
+  elif [ "$action" == "delete" ]; then
+    if kubectl get namespace metallb-system >/dev/null 2>&1; then
+      echo "Namespace 'metallb-system' exists. Deleting MetalLB configuration..."
+      if ! ./scripts/metallb.sh delete; then
+        echo "Error: Failed to delete MetalLB configuration."
+        exit 1
+      fi
+      echo "MetalLB configuration deleted successfully."
+    else
+      echo "Namespace 'metallb-system' does not exist. Nothing to delete."
+    fi
+  fi
+}
+
 # Create or delete the Kubernetes gateway resource
 manage_gtw_resource() {
   echo "Managing Kubernetes Gateway resource with action: $action"
@@ -165,6 +220,9 @@ main() {
   # Set action and validate
   set_action "$1"
 
+  # Check for and apply or delete MetalLB configuration
+  check_and_manage_metallb
+
   # Create or delete the k8s gateway resource
   manage_gtw_resource
 
@@ -178,10 +236,10 @@ main() {
     # Wait for the gateway name/ns to be ready
     check_gateway_status "http" "gloo-system"
 
-    # Chck the status of the httpbin deployment
+    # Check the status of the httpbin deployment
     deploy_rollout_status "httpbin" $NS
 
-    # Chck the status of the httproute
+    # Check the status of the httproute
     check_httproute_status "httpbin" $NS
 
     # Test connectivity through the Gloo Gateway
