@@ -8,6 +8,8 @@ ISTIO_REPO=${ISTIO_REPO:-"docker.io/istio"}
 ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"5m"}
 # The localation of the Helm chart. Specify the full path to the tarball for local charts.
 HELM_CHART=${HELM_CHART:-"gloo/gloo"}
+# Control Gateway API CRD installation
+INSTALL_CRDS=${INSTALL_CRDS:-true}
 # The version of Gateway API CRDs to install
 GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.1.0"}
 
@@ -31,28 +33,31 @@ if [[ "$minor_version" -lt 17 ]] || [[ "$minor_version" -eq 17 && "$patch_versio
   exit 1
 fi
 
-# Check if the required Gateway API CRDs exist
-REQUIRED_CRDS=(
-  "gatewayclasses.gateway.networking.k8s.io"
-  "gateways.gateway.networking.k8s.io"
-  "httproutes.gateway.networking.k8s.io"
-  "referencegrants.gateway.networking.k8s.io"
-)
+# Install Kubernetes Gateway CRDs if INSTALL_CRDS is set to true
+if [[ "$INSTALL_CRDS" == true ]]; then
+  # Check if the required Gateway API CRDs exist
+  REQUIRED_CRDS=(
+    "gatewayclasses.gateway.networking.k8s.io"
+    "gateways.gateway.networking.k8s.io"
+    "httproutes.gateway.networking.k8s.io"
+    "referencegrants.gateway.networking.k8s.io"
+  )
 
-CRDS_MISSING=false
-for crd in "${REQUIRED_CRDS[@]}"; do
-  if ! kubectl get crd "$crd" &>/dev/null; then
-    echo "CRD '$crd' is missing."
-    CRDS_MISSING=true
+  CRDS_MISSING=false
+  for crd in "${REQUIRED_CRDS[@]}"; do
+    if ! kubectl get crd "$crd" &>/dev/null; then
+      echo "CRD '$crd' is missing."
+      CRDS_MISSING=true
+    fi
+  done
+
+  # Install the Gateway API CRDs if any are missing
+  if [ "$CRDS_MISSING" = true ]; then
+    echo "Installing missing Kubernetes Gateway API CRDs..."
+    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml
+  else
+    echo "All required Gateway API CRDs are already present."
   fi
-done
-
-# Install the Gateway API CRDs if any are missing
-if [ "$CRDS_MISSING" = true ]; then
-  echo "Installing missing Kubernetes Gateway API CRDs..."
-  kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml
-else
-  echo "All required Gateway API CRDs are already present."
 fi
 
 if [[ $HELM_CHART == "gloo/gloo" ]]; then
