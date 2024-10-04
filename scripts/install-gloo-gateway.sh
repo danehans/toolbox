@@ -60,6 +60,8 @@ if [[ "$INSTALL_CRDS" == true ]]; then
   fi
 fi
 
+echo "Installing Gloo Gateway..."
+
 if [[ $HELM_CHART == "gloo/gloo" ]]; then
   # Add Gloo Gateway helm repo.
   helm repo add gloo https://storage.googleapis.com/solo-public-helm
