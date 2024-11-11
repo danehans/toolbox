@@ -12,6 +12,8 @@ HELM_CHART=${HELM_CHART:-"gloo/gloo"}
 INSTALL_CRDS=${INSTALL_CRDS:-true}
 # The version of Gateway API CRDs to install
 GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.1.0"}
+# The channel of Gateway API CRDs to install
+GATEWAY_API_CHANNEL=${GATEWAY_API_CHANNEL:-"experimental"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
@@ -24,15 +26,6 @@ for cmd in kubectl helm; do
   fi
 done
 
-# Supported version values are 1.17.7 and newer.
-minor_version=$(echo $GLOO_GTW_VERSION | cut -d. -f2)
-patch_version=$(echo $GLOO_GTW_VERSION | cut -d. -f3 | cut -d- -f1)
-
-if [[ "$minor_version" -lt 17 ]] || [[ "$minor_version" -eq 17 && "$patch_version" -lt 7 ]]; then
-  echo "Invalid value for GLOO_GTW_VERSION. Supported versions are 1.17.7 and newer."
-  exit 1
-fi
-
 # Install Kubernetes Gateway CRDs if INSTALL_CRDS is set to true
 if [[ "$INSTALL_CRDS" == true ]]; then
   # Check if the required Gateway API CRDs exist
@@ -40,6 +33,7 @@ if [[ "$INSTALL_CRDS" == true ]]; then
     "gatewayclasses.gateway.networking.k8s.io"
     "gateways.gateway.networking.k8s.io"
     "httproutes.gateway.networking.k8s.io"
+    "tcproutes.gateway.networking.k8s.io"
     "referencegrants.gateway.networking.k8s.io"
   )
 
@@ -53,8 +47,8 @@ if [[ "$INSTALL_CRDS" == true ]]; then
 
   # Install the Gateway API CRDs if any are missing
   if [ "$CRDS_MISSING" = true ]; then
-    echo "Installing missing Kubernetes Gateway API CRDs..."
-    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml
+    echo "Installing missing $GATEWAY_API_VERSION Kubernetes Gateway API CRDs from the $GATEWAY_API_CHANNEL channel ..."
+    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/$GATEWAY_API_CHANNEL-install.yaml
   else
     echo "All required Gateway API CRDs are already present."
   fi
