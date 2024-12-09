@@ -164,7 +164,7 @@ EOF
 
 # Test connectivity through the Gloo Gateway
 test_gloo_gtw_connectivity() {
-  echo "Testing connectivity through Gloo Gateway..."
+  echo "Testing HTTP connectivity through Gloo Gateway..."
 
   retries=0
   gtw_ip=""

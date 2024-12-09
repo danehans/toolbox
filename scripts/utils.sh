@@ -9,7 +9,7 @@ NS=${NS:-default}
 # The version of Istio to install.
 ISTIO_VERSION=${ISTIO_VERSION:-"1.23.1"}
 # The version of Gloo Gateway to install.
-GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"1.17.7"}
+GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"v1.18.0-rc4"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for a daemonset/deployment rollout to complete.
 ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"5m"}
 
@@ -130,5 +130,31 @@ check_httproute_status() {
   done
 
   echo "HTTPRoute $ns/$name was not accepted and refs were resolved after $MAX_RETRIES retries."
+  exit 1
+}
+
+# Function to check the status of an TCPRoute resource with retries
+check_tcproute_status() {
+  local name=$1
+  local ns=$2
+  local retries=0
+
+  echo "Checking status of TCPRoute $ns/$name..."
+
+  while [ $retries -lt $MAX_RETRIES ]; do
+    # Fetch the Accepted condition status for the TCPRoute
+    accepted_status=$(kubectl get -n $ns tcproute/$name -o jsonpath='{.status.parents[0].conditions[?(@.type=="Accepted")].status}')
+
+    if [ "$accepted_status" == "True" ] ; then
+      echo "TCPRoute $ns/$name is accepted."
+      return 0
+    else
+      echo "Attempt $((retries + 1)): TCPRoute $ns/$name is not accepted yet. Retrying in $BACKOFF_TIME seconds..."
+      retries=$((retries + 1))
+      sleep $BACKOFF_TIME
+    fi
+  done
+
+  echo "TCPRoute $ns/$name was not accepted and refs were resolved after $MAX_RETRIES retries."
   exit 1
 }

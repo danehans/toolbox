@@ -1,8 +1,6 @@
-# Istio Testing Scripts
+# Toolbox
 
-This repository contains a collection of scripts to automate various tasks related to testing Istio in Kubernetes environments.
-Each script provides functionality to streamline the deployment, management, and testing of Istio features such as ambient mesh,
-waypoints, and connectivity testing.
+This repository contains a collection of scripts to automate various tasks related to installation and end-to-end testing software.
 
 ## Prerequisites
 
@@ -28,6 +26,107 @@ The `kind-cluster.sh` script creates or deletes a Kubernetes kind cluster based 
 
 - `create`: Create the kind cluster.
 - `delete`: Delete the cluster.
+
+### Install MetalLB
+
+The `metallb.sh` script installs or uninstalls [MetalLB](https://metallb.io/) in the Kubernetes cluster configured of the current kubectl context.
+
+#### Usage
+
+```bash
+./scripts/metallb.sh [apply|delete]
+```
+
+#### Arguments
+
+- `apply`: Install MetalLB in the Kubernetes cluster.
+- `delete`: Uninstall MetalLB in the Kubernetes cluster.
+
+### Install Gloo Gateway
+
+The `install-gloo-gateway.sh` script automates the installation of Gloo Gateway on a Kubernetes cluster.
+
+#### Usage
+
+```bash
+./scripts/install-gloo-gateway.sh
+```
+
+#### User-Facing Variables
+
+- `GLOO_GTW_VERSION`: The version of Gloo Gateway to install. Defaults to "v1.18.0-rc4".
+- `HELM_CHART`: The location of the Gloo Gateway Helm chart. Specify the full path to the tarball for local charts. Defaults to "gloo/gloo".
+- `INSTALL_CRDS`: Install the Gateway API CRDs. Defaults to true.
+- `GATEWAY_API_VERSION`: The version of Gateway API CRDs to install. Defaults to "v1.2.1".
+- `GATEWAY_API_CHANNEL`: The channel of Gateway API CRDs to install. Defaults to "experimental" (required for TCPRoute testing).
+
+### HTTPRoute Testing
+
+The `test-gloo-gateway-httproute.sh` script automates the setup and testing of HTTProute support for Gloo Gateway (`./scripts/install-gloo-gateway.sh` required).
+
+#### Usage
+
+```bash
+./scripts/test-gloo-gateway-httproute.sh [apply|delete]
+```
+
+#### Arguments
+
+- `apply`: Deploy all resources and test connectivity.
+- `delete`: Clean up all resources.
+
+#### User-Facing Variables
+
+- `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
+- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
+- `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
+
+Example
+
+```bash
+NS=test BACKOFF_TIME=10 ./scripts/test-gloo-gateway-httproute.sh apply
+```
+
+This command creates namespace 'test' and applies the Kubernetes resources in this namespace with a 10-second backoff time between connectivity testing retries.
+
+### TCPRoute Testing
+
+The `test-gloo-gateway-tcproute.sh` script automates the setup and testing of TCProute support for Gloo Gateway (`./scripts/install-gloo-gateway.sh` required).
+
+#### Usage
+
+```bash
+./scripts/test-gloo-gateway-tcproute.sh [apply|delete]
+```
+
+#### Arguments
+
+- `apply`: Deploy all resources and test connectivity.
+- `delete`: Clean up all resources.
+
+#### User-Facing Variables
+
+- `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
+- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
+- `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
+
+Example
+
+```bash
+NS=test BACKOFF_TIME=10 ./scripts/test-gloo-gateway-tcproute.sh apply
+```
+
+This command creates namespace 'test' and applies the Kubernetes resources in this namespace with a 10-second backoff time between connectivity testing retries.
+
+### Uninstall Gloo Gateway
+
+The `uninstall-gloo-gateway.sh` script automates the removal of Gloo Gateway on the Kubernetes cluster of the current kubectl context.
+
+#### Usage
+
+```bash
+./scripts/uninstall-gloo-gateway.sh
+```
 
 ### Install Istio
 
@@ -60,7 +159,7 @@ The example installs Istio in ambient mode and waits up to 15-minutes for each c
 
 ### Ambient Testing
 
-The `test-ambient.sh` script script automates the setup and testing of Istio's ambient mode in a Kubernetes cluster. It handles the deployment of Istio
+The `test-ambient.sh` script automates the setup and testing of Istio's ambient mode in a Kubernetes cluster. It handles the deployment of Istio
 waypoints, services, and other resources, and performs connectivity checks between pods.
 
 #### Usage
@@ -76,10 +175,10 @@ waypoints, services, and other resources, and performs connectivity checks betwe
 
 #### User-Facing Variables
 
-- `NS` (default: default): Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist.
-- `BACKOFF_TIME` (default: 5): Specifies the time in seconds to wait between retries during connectivity and waypoint stats checks.
-- `MAX_RETRIES` (default: 12): The maximum number of retry attempts for connectivity and waypoint stats checks.
-- `WAYPOINT_STATS_KEY` (default: http.inbound_0.0.0.0_80;.rbac.allowed): The specific Istio waypoint stats key to monitor during waypoint connectivity testing.
+- `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
+- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity and waypoint stats checks. Defaults to 5.
+- `MAX_RETRIES`: The maximum number of retry attempts for connectivity and waypoint stats checks. Defaults to 12.
+- `WAYPOINT_STATS_KEY`: The specific Istio waypoint stats key to monitor during waypoint connectivity testing. Defaults to "default: http.inbound_0.0.0.0_80;.rbac.allowed".
 
 Example
 
@@ -87,11 +186,12 @@ Example
 NS=test BACKOFF_TIME=10 ./scripts/test-ambient.sh apply
 ```
 
-This command applies the resources in the 'test' namespace with a 10-second backoff time between retries.
+This command creates namespace 'test' and applies the Kubernetes resources in this namespace with a 10-second backoff time between retries.
 
 ### Uninstall Istio
 
-The `uninstall-istio.sh` script automates the removal of Istio on a Kubernetes cluster. It uninstalls the Istio control plane, ambient mesh configuration, etc.
+The `uninstall-istio.sh` script automates the removal of Istio on a Kubernetes cluster of the current kubectl context. It uninstalls the
+Istio control plane, ambient mesh configuration, etc.
 
 #### Usage
 

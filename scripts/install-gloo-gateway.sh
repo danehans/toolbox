@@ -2,16 +2,12 @@
 
 set -e
 
-# The repo to use for pulling Istio container images.
-ISTIO_REPO=${ISTIO_REPO:-"docker.io/istio"}
-# A time unit, e.g. 1s, 2m, 3h, to wait for Istio control-plane component deployment rollout to complete.
-ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"5m"}
-# The localation of the Helm chart. Specify the full path to the tarball for local charts.
+# The location of the Helm chart. Specify the full path to the tarball for local charts.
 HELM_CHART=${HELM_CHART:-"gloo/gloo"}
 # Control Gateway API CRD installation
 INSTALL_CRDS=${INSTALL_CRDS:-true}
 # The version of Gateway API CRDs to install
-GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.1.0"}
+GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.2.1"}
 # The channel of Gateway API CRDs to install
 GATEWAY_API_CHANNEL=${GATEWAY_API_CHANNEL:-"experimental"}
 
@@ -54,7 +50,7 @@ if [[ "$INSTALL_CRDS" == true ]]; then
   fi
 fi
 
-echo "Installing Gloo Gateway..."
+echo "Installing Gloo Gateway $GLOO_GTW_VERSION..."
 
 if [[ $HELM_CHART == "gloo/gloo" ]]; then
   # Add Gloo Gateway helm repo.
