@@ -121,7 +121,7 @@ manage_httpbin_resources() {
 
   else
     # Delete the httpbin resources
-    kubectl -n $NS delete -f https://raw.githubusercontent.com/solo-io/gloo-mesh-use-cases/main/policy-demo/httpbin.yaml
+    kubectl -n $NS delete -f https://raw.githubusercontent.com/solo-io/gloo-mesh-use-cases/main/policy-demo/httpbin.yaml --force
 
     # Only delete the namespace if it is not "default"
     if [ "$NS" != "default" ]; then

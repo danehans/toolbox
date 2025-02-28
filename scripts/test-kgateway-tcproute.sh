@@ -90,9 +90,9 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: tcp
-  namespace: gloo-system
+  namespace: kgateway-system
 spec:
-  gatewayClassName: gloo-gateway
+  gatewayClassName: kgateway
   listeners:
   - protocol: TCP
     port: 8000
@@ -151,7 +151,7 @@ metadata:
 spec:
   parentRefs:
     - name: tcp
-      namespace: gloo-system
+      namespace: kgateway-system
       sectionName: tcp
   rules:
     - backendRefs:
@@ -161,9 +161,9 @@ EOF
   fi
 }
 
-# Test connectivity through the Gloo Gateway
-test_gloo_gtw_connectivity() {
-  echo "Testing TCP connectivity through Gloo Gateway..."
+# Test connectivity through the Kgateway
+test_kgtw_connectivity() {
+  echo "Testing TCP connectivity through Kgateway..."
 
   retries=0
   gtw_ip=""
@@ -171,7 +171,7 @@ test_gloo_gtw_connectivity() {
   while [ $retries -lt $MAX_RETRIES ]; do
     # Fetch the gateway IP
     echo "Fetching the IP for gateway/tcp ..."
-    gtw_ip=$(kubectl get gateway/tcp -n gloo-system -o jsonpath='{.status.addresses[0].value}')
+    gtw_ip=$(kubectl get gateway/tcp -n kgateway-system -o jsonpath='{.status.addresses[0].value}')
 
     if [ -z "$gtw_ip" ]; then
       echo "Attempt $((retries + 1)): Failed to get gateway/tcp IP. Gateway might not be ready yet. Retrying in $BACKOFF_TIME seconds..."
@@ -234,7 +234,7 @@ main() {
 
   if [ "$action" = "apply" ]; then
     # Wait for the gateway name/ns to be ready
-    check_gateway_status "tcp" "gloo-system"
+    check_gateway_status "tcp" "kgateway-system"
 
     # Check the status of the tcp echo deployment
     deploy_rollout_status "tcp-echo" $NS
@@ -242,8 +242,8 @@ main() {
     # Check the status of the tcproute
     check_tcproute_status "tcp-echo" $NS
 
-    # Test connectivity through the Gloo Gateway
-    test_gloo_gtw_connectivity
+    # Test connectivity through the Kgateway
+    test_kgtw_connectivity
   fi
 }
 

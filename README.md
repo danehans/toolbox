@@ -10,7 +10,7 @@ Ensure the following tools are installed:
 - [istioctl](https://istio.io/latest/docs/setup/additional-setup/download-istio-release/): The Istio command-line tool.
 - [helm](https://helm.sh/docs/intro/install/): A package manager for Kubernetes.
 
-## Overview of Scripts
+## Utility Scripts
 
 ### Create a Kind Cluster
 
@@ -29,7 +29,7 @@ The `kind-cluster.sh` script creates or deletes a Kubernetes kind cluster based 
 
 ### Install MetalLB
 
-The `metallb.sh` script installs or uninstalls [MetalLB](https://metallb.io/) in the Kubernetes cluster configured of the current kubectl context.
+The `metallb.sh` script installs or uninstalls [MetalLB](https://metallb.io/) in the Kubernetes cluster configured in the current kubectl context.
 
 #### Usage
 
@@ -41,6 +41,100 @@ The `metallb.sh` script installs or uninstalls [MetalLB](https://metallb.io/) in
 
 - `apply`: Install MetalLB in the Kubernetes cluster.
 - `delete`: Uninstall MetalLB in the Kubernetes cluster.
+
+## Kgateway
+
+[Kgateway](https://kgateway.dev/) is a feature-rich, fast, and flexible Kubernetes-native ingress controller and next-generation API gateway that is built on top of Envoy proxy
+and [Gateway API](https://gateway-api.sigs.k8s.io/).
+
+### Install Kgateway
+
+The `install-kgateway.sh` script automates the installation of Kgateway on a Kubernetes cluster.
+
+#### Usage
+
+```bash
+./scripts/install-kgateway.sh
+```
+
+#### User-Facing Variables
+
+- `KGTW_VERSION`: The version of Kgateway to install. Defaults to "v2.0.0-main".
+- `KGTW_REGISTRY`: The name of the image registry to pull the Kgateway image from. Defaults to "ghcr.io/kgateway-dev".
+- `HELM_CHART`: The location of the Kgateway Helm chart. Specify the full path to the tarball for local charts. Defaults to "oci://ghcr.io/kgateway-dev/charts/kgateway".
+- `INSTALL_CRDS`: Install the Gateway API CRDs. Defaults to true.
+- `GATEWAY_API_VERSION`: The version of Gateway API CRDs to install. Defaults to "v1.2.1".
+- `GATEWAY_API_CHANNEL`: The channel of Gateway API CRDs to install. Defaults to "experimental" (required for TCPRoute testing).
+
+### HTTPRoute Testing
+
+The `test-kgateway-httproute.sh` script automates the setup and testing of HTTProute support for Kgateway (`./scripts/install-kgateway.sh` required).
+
+#### Usage
+
+```bash
+./scripts/test-kgateway-httproute.sh [apply|delete]
+```
+
+#### Arguments
+
+- `apply`: Deploy all resources and test connectivity.
+- `delete`: Clean up all resources.
+
+#### User-Facing Variables
+
+- `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
+- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
+- `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
+
+Example
+
+```bash
+NS=test BACKOFF_TIME=10 ./scripts/test-kgateway-httproute.sh apply
+```
+
+This command creates namespace 'test' and applies the Kubernetes resources in this namespace with a 10-second backoff time between connectivity testing retries.
+
+### TCPRoute Testing
+
+The `test-kgateway-tcproute.sh` script automates the setup and testing of TCProute support for Kgateway (`./scripts/install-kgateway.sh` required).
+
+#### Usage
+
+```bash
+./scripts/test-kgateway-tcproute.sh [apply|delete]
+```
+
+#### Arguments
+
+- `apply`: Deploy all resources and test connectivity.
+- `delete`: Clean up all resources.
+
+#### User-Facing Variables
+
+- `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
+- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
+- `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
+
+Example
+
+```bash
+NS=test BACKOFF_TIME=10 ./scripts/test-kgateway-tcproute.sh apply
+```
+
+### Uninstall Kgateway
+
+The `uninstall-kgateway.sh` script automates the removal of Kgateway on the Kubernetes cluster in the current kubectl context.
+
+#### Usage
+
+```bash
+./scripts/uninstall-kgateway.sh
+```
+
+## Gloo Gateway
+
+[Gloo Gateway](https://docs.solo.io/gloo-edge/main/) is a feature-rich, Envoy-powered, Kubernetes-native ingress controller, and next-generation API gateway.
 
 ### Install Gloo Gateway
 
@@ -120,13 +214,15 @@ This command creates namespace 'test' and applies the Kubernetes resources in th
 
 ### Uninstall Gloo Gateway
 
-The `uninstall-gloo-gateway.sh` script automates the removal of Gloo Gateway on the Kubernetes cluster of the current kubectl context.
+The `uninstall-gloo-gateway.sh` script automates the removal of Gloo Gateway on the Kubernetes cluster in the current kubectl context.
 
 #### Usage
 
 ```bash
 ./scripts/uninstall-gloo-gateway.sh
 ```
+
+## Istio
 
 ### Install Istio
 
@@ -190,7 +286,7 @@ This command creates namespace 'test' and applies the Kubernetes resources in th
 
 ### Uninstall Istio
 
-The `uninstall-istio.sh` script automates the removal of Istio on a Kubernetes cluster of the current kubectl context. It uninstalls the
+The `uninstall-istio.sh` script automates the removal of Istio on a Kubernetes cluster in the current kubectl context. It uninstalls the
 Istio control plane, ambient mesh configuration, etc.
 
 #### Usage

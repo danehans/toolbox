@@ -13,13 +13,13 @@ for cmd in kubectl helm; do
   fi
 done
 
-echo "Uninstalling Gloo Gateway..."
+echo "Uninstalling Kgateway..."
 
-# Uninstall Gloo Gateway
-helm uninstall gloo-gateway -n gloo-system
+# Uninstall Kgateway
+helm uninstall kgateway -n kgateway-system
 
-# Delete the Gloo Gateway namespace
-kubectl delete ns/gloo-system
+# Delete the Kgateway namespace
+kubectl delete ns/kgateway-system
 
 # Uninstall Kubernetes Gateway CRDs if UNINSTALL_CRDS is set to true
 if [[ "$UNINSTALL_CRDS" == true ]]; then
@@ -48,4 +48,4 @@ if [[ "$UNINSTALL_CRDS" == true ]]; then
   fi
 fi
 
-echo "Gloo Gateway successfully uninstalled!"
+echo "Kgateway successfully uninstalled!"

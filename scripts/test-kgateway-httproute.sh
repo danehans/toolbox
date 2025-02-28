@@ -11,7 +11,7 @@ MAX_RETRIES=${MAX_RETRIES:-12}
 NS=${NS:-default}  # User-facing namespace variable, defaults to "default"
 
 # Check if required CLI tools are installed.
-for cmd in kubectl helm nc; do
+for cmd in kubectl helm; do
   if ! command_exists $cmd; then
     echo "$cmd is not installed. Please install $cmd before running this script."
     exit 1
@@ -89,25 +89,23 @@ manage_gtw_resource() {
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: tcp
-  namespace: gloo-system
+  name: http
+  namespace: kgateway-system
 spec:
-  gatewayClassName: gloo-gateway
+  gatewayClassName: kgateway
   listeners:
-  - protocol: TCP
-    port: 8000
-    name: tcp
+  - protocol: HTTP
+    port: 8080
+    name: http
     allowedRoutes:
       namespaces:
         from: All
-      kinds:
-      - kind: TCPRoute
 EOF
 }
 
-# Create or delete the Kubernetes example tcp echo app resources
-manage_tcp_echo_resources() {
-  echo "Managing Kubernetes resources for the example tcp-echo app with action: $action"
+# Create or delete the Kubernetes httpbin resources
+manage_httpbin_resources() {
+  echo "Managing Kubernetes resources for httpbin app with action: $action"
 
   if [ "$action" == "apply" ]; then
     # Check if namespace $NS exists, and create it if it does not
@@ -119,11 +117,11 @@ manage_tcp_echo_resources() {
     fi
 
     # Apply the httpbin resources
-    kubectl -n $NS apply -f https://gist.githubusercontent.com/danehans/8081ade20ac03153c5d4625e64c419bf/raw/5404e2ad11d8bdd6e34b1d18effa1fb98401e1e1/tcp_echo.yaml
+    kubectl -n $NS apply -f https://raw.githubusercontent.com/solo-io/gloo-mesh-use-cases/main/policy-demo/httpbin.yaml
 
   else
     # Delete the httpbin resources
-    kubectl -n $NS delete -f https://gist.githubusercontent.com/danehans/8081ade20ac03153c5d4625e64c419bf/raw/5404e2ad11d8bdd6e34b1d18effa1fb98401e1e1/tcp_echo.yaml --force
+    kubectl -n $NS delete -f https://raw.githubusercontent.com/solo-io/gloo-mesh-use-cases/main/policy-demo/httpbin.yaml --force
 
     # Only delete the namespace if it is not "default"
     if [ "$NS" != "default" ]; then
@@ -139,42 +137,45 @@ manage_tcp_echo_resources() {
   fi
 }
 
-# Create or delete the Kubernetes tcproute resource
-manage_tcproute_resource() {
+# Create or delete the Kubernetes httproute resource
+manage_httproute_resource() {
   if [ "$action" == "apply" ]; then
-    echo "Applying Kubernetes TCPRoute resource..."
+    echo "Applying Kubernetes HTTPRoute resource..."
     kubectl apply -n $NS -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
 metadata:
-  name: tcp-echo
+  name: httpbin
+  labels:
+    example: httpbin-route
 spec:
   parentRefs:
-    - name: tcp
-      namespace: gloo-system
-      sectionName: tcp
+    - name: http
+      namespace: kgateway-system
+  hostnames:
+    - "www.example.com"
   rules:
     - backendRefs:
-        - name: tcp-echo
-          port: 1025
+        - name: httpbin
+          port: 8000
 EOF
   fi
 }
 
-# Test connectivity through the Gloo Gateway
-test_gloo_gtw_connectivity() {
-  echo "Testing TCP connectivity through Gloo Gateway..."
+# Test connectivity through Kgateway
+test_kgtw_connectivity() {
+  echo "Testing HTTP connectivity through Kgateway..."
 
   retries=0
   gtw_ip=""
 
   while [ $retries -lt $MAX_RETRIES ]; do
     # Fetch the gateway IP
-    echo "Fetching the IP for gateway/tcp ..."
-    gtw_ip=$(kubectl get gateway/tcp -n gloo-system -o jsonpath='{.status.addresses[0].value}')
+    echo "Fetching the IP for gateway/http ..."
+    gtw_ip=$(kubectl get gateway/http -n kgateway-system -o jsonpath='{.status.addresses[0].value}')
 
     if [ -z "$gtw_ip" ]; then
-      echo "Attempt $((retries + 1)): Failed to get gateway/tcp IP. Gateway might not be ready yet. Retrying in $BACKOFF_TIME seconds..."
+      echo "Attempt $((retries + 1)): Failed to get gateway/http IP. Gateway might not be ready yet. Retrying in $BACKOFF_TIME seconds..."
       retries=$((retries + 1))
       sleep $BACKOFF_TIME
     else
@@ -184,23 +185,22 @@ test_gloo_gtw_connectivity() {
   done
 
   if [ -z "$gtw_ip" ]; then
-    echo "Failed to get gateway/tcp IP after $retries retries."
+    echo "Failed to get gateway/http IP after $retries retries."
     return 1
   fi
 
   retries=0
   sleep $BACKOFF_TIME
   while [ $retries -lt $MAX_RETRIES ]; do
-    # Test TCP connectivity using nc
-    echo "Sending test message to $gtw_ip:8000..."
-    response=$(echo "Hello, TCP!" | nc -w 5 $gtw_ip 8000)
+    # Send a curl request and capture the response
+    response=$(curl -s -H "host: www.example.com:8080" http://$gtw_ip:8080/headers)
 
-    # Check if the response echoes back the test message
-    if [ "$response" == "Hello, TCP!" ]; then
-      echo "Connection successful! Received expected response: '$response'."
+    # Check if the response contains 'www.example.com:8080'
+    if echo "$response" | grep -q "www.example.com:8080"; then
+      echo "Connection successful! Response includes 'www.example.com:8080'."
       return 0
     else
-      echo "Attempt $((retries + 1)): Response mismatch or no response. Retrying in $BACKOFF_TIME seconds..."
+      echo "Attempt $((retries + 1)): Response does not include 'www.example.com:8080'. Retrying in $BACKOFF_TIME seconds..."
       retries=$((retries + 1))
       sleep $BACKOFF_TIME
     fi
@@ -226,24 +226,24 @@ main() {
   # Create or delete the k8s gateway resource
   manage_gtw_resource
 
-  # Create or delete the example tcp app k8s resources
-  manage_tcp_echo_resources
+  # Create or delete the k8s httpbin resources
+  manage_httpbin_resources
 
-  # Create or delete the k8s tcproute resources
-  manage_tcproute_resource
+  # Create or delete the k8s httproute resources
+  manage_httproute_resource
 
   if [ "$action" = "apply" ]; then
     # Wait for the gateway name/ns to be ready
-    check_gateway_status "tcp" "gloo-system"
+    check_gateway_status "http" "kgateway-system"
 
-    # Check the status of the tcp echo deployment
-    deploy_rollout_status "tcp-echo" $NS
+    # Check the status of the httpbin deployment
+    deploy_rollout_status "httpbin" $NS
 
-    # Check the status of the tcproute
-    check_tcproute_status "tcp-echo" $NS
+    # Check the status of the httproute
+    check_httproute_status "httpbin" $NS
 
-    # Test connectivity through the Gloo Gateway
-    test_gloo_gtw_connectivity
+    # Test connectivity through the Kgateway
+    test_kgtw_connectivity
   fi
 }
 

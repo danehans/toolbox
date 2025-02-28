@@ -3,7 +3,8 @@
 set -e
 
 # The location of the Helm chart. Specify the full path to the tarball for local charts.
-HELM_CHART=${HELM_CHART:-"gloo/gloo"}
+HELM_CHART=${HELM_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway"}
+KGTW_REGISTRY=${KGTW_REGISTRY:-"ghcr.io/kgateway-dev"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
@@ -50,31 +51,22 @@ if [[ "$INSTALL_CRDS" == true ]]; then
   fi
 fi
 
-# Ensure GLOO_GTW_VERSION is set
-if [[ -z "${GLOO_GTW_VERSION:-}" ]]; then
-  echo "Error: GLOO_GTW_VERSION environment variable is not set. Please export it to the desired version."
+# Ensure KGTW_VERSION is set
+if [[ -z "${KGTW_VERSION:-}" ]]; then
+  echo "Error: KGTW_VERSION environment variable is not set. Please export it to the desired version."
   exit 1
 fi
 
-echo "Installing Gloo Gateway $GLOO_GTW_VERSION..."
+echo "Installing Kgateway (version $KGTW_VERSION) in namespace 'kgateway-system'..."
 
-if [[ $HELM_CHART == "gloo/gloo" ]]; then
-  # Add Gloo Gateway helm repo.
-  helm repo add gloo https://storage.googleapis.com/solo-public-helm
-  helm repo update
-fi
-
-# Install Gloo Gateway.
-helm upgrade --install gloo-gateway $HELM_CHART \
--n gloo-system \
---create-namespace \
---version=$GLOO_GTW_VERSION \
---set kubeGateway.enabled=true \
---set gloo.disableLeaderElection=true \
---set discovery.enabled=false \
---set gatewayProxies.gatewayProxy.disabled=true
+# Install Kgateway.
+helm upgrade --install kgateway "$HELM_CHART" \
+  -n kgateway-system \
+  --create-namespace \
+  --set image.registry="$KGTW_REGISTRY" \
+  --version "$KGTW_VERSION"
 
 # Wait for the gloo deployment rollout to complete.
-check_gatewayclass_status "gloo-gateway"
+check_gatewayclass_status "kgateway"
 
-echo "Gloo Gateway successfully installed!"
+echo "Kgateway successfully installed!"
