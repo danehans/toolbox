@@ -31,6 +31,9 @@ The `kind-cluster.sh` script creates or deletes a Kubernetes kind cluster based 
 
 The `metallb.sh` script installs or uninstalls [MetalLB](https://metallb.io/) in the Kubernetes cluster configured in the current kubectl context.
 
+__NOte:__ Mac users must run [docker-mac-net-connect](https://github.com/chipmk/docker-mac-net-connect) to get LoadBalancer services to work
+(required by testing scripts).
+
 #### Usage
 
 ```bash
