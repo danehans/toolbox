@@ -6,6 +6,8 @@ set -e
 BACKOFF_TIME=${BACKOFF_TIME:-5}
 MAX_RETRIES=${MAX_RETRIES:-12}
 NS=${NS:-default}
+# The version of Gateway API Inference Extension to use.
+INF_EXT_VERSION=${INF_EXT_VERSION:-"v0.1.0"}
 # The version of Gateway API CRDs to install/uninstall.
 GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.2.1"}
 # The channel of Gateway API CRDs to install
@@ -21,7 +23,7 @@ KGTW_VERSION=${KGTW_VERSION:-"v2.0.0-main"}
 # The version of Gloo Gateway to install.
 GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"v1.18.0"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for a daemonset/deployment rollout to complete.
-ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"5m"}
+ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"10m"}
 
 # Function to check if a command exists
 command_exists() {

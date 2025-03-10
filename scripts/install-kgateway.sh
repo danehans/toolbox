@@ -32,6 +32,8 @@ if [[ "$INSTALL_CRDS" == true ]]; then
     "httproutes.gateway.networking.k8s.io"
     "tcproutes.gateway.networking.k8s.io"
     "referencegrants.gateway.networking.k8s.io"
+    "inferencepools.inference.networking.x-k8s.io"
+    "inferencemodels.inference.networking.x-k8s.io"
   )
 
   CRDS_MISSING=false
@@ -42,12 +44,14 @@ if [[ "$INSTALL_CRDS" == true ]]; then
     fi
   done
 
-  # Install the Gateway API CRDs if any are missing
+  # Install the Gateway API and Inference Extension CRDs if any are missing.
   if [ "$CRDS_MISSING" = true ]; then
     echo "Installing missing $GATEWAY_API_VERSION Kubernetes Gateway API CRDs from the $GATEWAY_API_CHANNEL channel ..."
     kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/$GATEWAY_API_CHANNEL-install.yaml
+    echo "Installing missing $INF_EXT_VERSION Kubernetes Inference Extension CRDs ..."
+    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$INF_EXT_VERSION/manifests.yaml
   else
-    echo "All required Gateway API CRDs are already present."
+    echo "All required Gateway API and Inference Extension CRDs are already present."
   fi
 fi
 

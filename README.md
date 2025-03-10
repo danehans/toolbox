@@ -1,6 +1,61 @@
 # Toolbox
 
-This repository contains a collection of scripts to automate various tasks related to installation and end-to-end testing software.
+This repository contains a collection of scripts to automate various tasks related to installation and end-to-end testing.
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Utility Scripts](#utility-scripts)
+  - [Create a Kind Cluster](#create-a-kind-cluster)
+    - [Usage](#usage)
+    - [Arguments](#arguments)
+  - [Install MetalLB](#install-metallb)
+    - [Usage](#usage-1)
+    - [Arguments](#arguments-1)
+- [Kgateway](#kgateway)
+  - [Install Kgateway](#install-kgateway)
+    - [Usage](#usage-2)
+    - [User-Facing Variables](#user-facing-variables)
+  - [Inference Extension Testing](#inference-extension-testing)
+    - [Usage](#usage-2)
+    - [Arguments](#arguments-2)
+    - [User-Facing Variables](#user-facing-variables)
+  - [HTTPRoute Testing](#httproute-testing)
+    - [Usage](#usage-3)
+    - [Arguments](#arguments-3)
+    - [User-Facing Variables](#user-facing-variables-1)
+  - [TCPRoute Testing](#tcproute-testing)
+    - [Usage](#usage-4)
+    - [Arguments](#arguments-4)
+    - [User-Facing Variables](#user-facing-variables-1)
+  - [Uninstall Kgateway](#uninstall-kgateway)
+    - [Usage](#usage-4)
+- [Gloo Gateway](#gloo-gateway)
+  - [Install Gloo Gateway](#install-gloo-gateway)
+    - [Usage](#usage-5)
+    - [User-Facing Variables](#user-facing-variables-1)
+  - [HTTPRoute Testing](#httproute-testing-1)
+    - [Usage](#usage-6)
+    - [Arguments](#arguments-4)
+    - [User-Facing Variables](#user-facing-variables-1)
+  - [TCPRoute Testing](#tcproute-testing-1)
+    - [Usage](#usage-6)
+    - [Arguments](#arguments-5)
+    - [User-Facing Variables](#user-facing-variables-1)
+  - [Uninstall Gloo Gateway](#uninstall-gloo-gateway)
+    - [Usage](#usage-7)
+- [Istio](#istio)
+  - [Install Istio](#install-istio)
+    - [Usage](#usage-7)
+    - [Arguments](#arguments-6)
+    - [User-Facing Variables](#user-facing-variables-2)
+  - [Ambient Testing](#ambient-testing)
+    - [Usage](#usage-7)
+    - [Arguments](#arguments-6)
+    - [User-Facing Variables](#user-facing-variables-3)
+  - [Uninstall Istio](#uninstall-istio)
+    - [Usage](#usage-8)
+    - [Arguments](#arguments-7)"}
 
 ## Prerequisites
 
@@ -68,6 +123,31 @@ The `install-kgateway.sh` script automates the installation of Kgateway on a Kub
 - `INSTALL_CRDS`: Install the Gateway API CRDs. Defaults to true.
 - `GATEWAY_API_VERSION`: The version of Gateway API CRDs to install. Defaults to "v1.2.1".
 - `GATEWAY_API_CHANNEL`: The channel of Gateway API CRDs to install. Defaults to "experimental" (required for TCPRoute testing).
+- `INF_EXT_VERSION`: The version of Gateway API Inference Extension to use. Defaults to "v0.1.0".
+
+### Inference Extension Testing
+
+The `test-kgateway-inference-ext.sh` script automates the setup and testing of Gateway API [Inference Extension](https://gateway-api-inference-extension.sigs.k8s.io/) support for Kgateway (`./scripts/install-kgateway.sh` required).
+
+#### Usage
+
+```bash
+./scripts/test-kgateway-inference-ext.sh [apply|delete]
+```
+
+#### Arguments
+
+- `apply`: Deploy all resources and test connectivity.
+- `delete`: Clean up all resources.
+
+#### User-Facing Variables
+
+- `HF_TOKEN`: Your Hugging Face API token with access to the Llama-2-7b-hf model. Defaults to "" so it's required.
+- `NS`: The namspace to use for testing. The script will create the namespace if it does not exist. Defaults to "" (meaning the default namespace).
+- `NUM_REPLICAS`: The number of replicas for the model server deployment. Defaults to `1`.
+- `CURL_POD`: Whether or not to use a pod to run the client curl commands. Defaults to `true`.
+- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
+- `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
 
 ### HTTPRoute Testing
 
@@ -87,6 +167,7 @@ The `test-kgateway-httproute.sh` script automates the setup and testing of HTTPr
 #### User-Facing Variables
 
 - `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
+- `CURL_POD`: Whether or not to use a pod to run the client curl commands. Defaults to `true`.
 - `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
 - `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
 

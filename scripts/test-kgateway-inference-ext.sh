@@ -9,9 +9,10 @@ source ./scripts/utils.sh
 BACKOFF_TIME=${BACKOFF_TIME:-5}
 MAX_RETRIES=${MAX_RETRIES:-12}
 NS=${NS:-default}
+HF_TOKEN=${HF_TOKEN:-""}
 # CURL_POD defines whether to use a curl pod as a client to test connectivity.
 CURL_POD=${CURL_POD:-true}
-# NUM_REPLICAS defines the number of replicas to use for the httpbin backend deployment.
+# NUM_REPLICAS defines the number of replicas to use for the model server backend deployment.
 NUM_REPLICAS=${NUM_REPLICAS:-1}
 
 # Check if required CLI tools are installed.
@@ -30,6 +31,26 @@ set_action() {
   action=$1
 }
 
+# Create or delete the HF token secret.
+manage_hf_secret() {
+  if [ "$HF_TOKEN" == "" ]; then
+    echo "You must set HF_TOKEN to your Hugging Face token."
+    exit 1
+  fi
+
+  if [ "$action" == "apply" ]; then
+    if ! kubectl -n $NS get secret/hf-token > /dev/null 2>&1; then
+      echo "Creating secret in namespace $NS..."
+      kubectl -n $NS create secret generic hf-token --from-literal=token=$HF_TOKEN
+    else
+      echo "Secret hf-token in namespace $NS already exists."
+    fi
+  else
+    echo "Deleting secret in namespace $NS..."
+    kubectl -n $NS delete secret/hf-token
+  fi
+}
+
 manage_ns() {
   if [ "$NS" == "default" ]; then
     echo "Namespace is 'default', skipping namespace management."
@@ -38,8 +59,12 @@ manage_ns() {
 
   # Manage the user-provided namespace.
   if [ "$action" == "apply" ]; then
-    echo "Creating namespace $NS..."
-    kubectl create namespace $NS
+    if ! kubectl get namespace "$NS" > /dev/null 2>&1; then
+      echo "Creating namespace $NS..."
+      kubectl create namespace $NS
+    else
+    echo "Namespace $NS already exists."
+    fi
   else
     echo "Deleting namespace $NS..."
     kubectl delete namespace $NS --force
@@ -116,19 +141,19 @@ spec:
   fi
 }
 
-# Create or delete the httpbin Kubernetes resources.
-manage_httpbin_resources() {
-  echo "Managing Kubernetes resources for httpbin app with action: $action"
+# Create or delete the model server Kubernetes resource.
+manage_model_resources() {
+  echo "Managing Kubernetes resources for model server with action: $action"
 
   if [ "$action" == "apply" ]; then
-    # Apply the httpbin resources
-    kubectl -n $NS apply -f https://raw.githubusercontent.com/solo-io/gloo-mesh-use-cases/main/policy-demo/httpbin.yaml
+    # Apply the model server resources
+    kubectl -n $NS apply -f https://gist.githubusercontent.com/danehans/d43c6b5bd706ba5ba356ec992cd31217/raw/f149cc470291e47de676c48fb5481f805d8ec909/vllm_llama_deployment.yaml
     # Scale the deployment down
-    echo "Scaling httpbin deployment to $NUM_REPLICAS replicas..."
-    kubectl -n $NS scale deploy/httpbin --replicas=$NUM_REPLICAS
+    echo "Scaling model server deployment to $NUM_REPLICAS replicas..."
+    kubectl -n $NS scale deploy/vllm-llama2-7b-pool --replicas=$NUM_REPLICAS
   else
-    # Delete the httpbin resources
-    kubectl -n $NS delete -f https://raw.githubusercontent.com/solo-io/gloo-mesh-use-cases/main/policy-demo/httpbin.yaml --force
+    # Delete the model server resources
+    kubectl -n $NS delete -f https://gist.githubusercontent.com/danehans/d43c6b5bd706ba5ba356ec992cd31217/raw/f149cc470291e47de676c48fb5481f805d8ec909/vllm_llama_deployment.yaml
   fi
 }
 
@@ -139,16 +164,43 @@ manage_gtw_resource() {
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: http
+  name: inference-gateway
 spec:
   gatewayClassName: kgateway
   listeners:
-  - protocol: HTTP
-    port: 8080
-    name: http
-    allowedRoutes:
-      namespaces:
-        from: All
+    - name: http
+      protocol: HTTP
+      port: 8080
+    - name: llm-gw
+      protocol: HTTP
+      port: 8081
+EOF
+}
+
+# Create or delete the Kubernetes InferenceModel resource
+manage_infmodel_resource() {
+  echo "Managing InferenceModel resource with action: $action"
+  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/pkg/manifests/inferencemodel.yaml
+}
+
+# Create or delete the Kubernetes InferencePool resource.
+manage_infpool_resource() {
+  api_ver="v1alpha2"
+  if [ "$INF_EXT_VERSION" == "v0.1.0" ]; then
+    api_ver="v1alpha1"
+  fi
+  echo "Managing Kubernetes InferencePool resource..."
+  kubectl $action -n $NS -f - <<EOF
+apiVersion: inference.networking.x-k8s.io/${api_ver}
+kind: InferencePool
+metadata:
+  name: vllm-llama2-7b-pool
+spec:
+  targetPortNumber: 8000
+  selector:
+    app: vllm-llama2-7b-pool
+  extensionRef:
+    name: vllm-llama2-7b-pool-endpoint-picker
 EOF
 }
 
@@ -156,37 +208,45 @@ EOF
 manage_httproute_resource() {
   echo "Managing Kubernetes HTTPRoute resource..."
   kubectl $action -n $NS -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: httpbin
-  labels:
-    example: httpbin-route
+  name: llm-route
 spec:
   parentRefs:
-    - name: http
-      namespace: $NS
-  hostnames:
-    - "www.example.com"
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: inference-gateway
+    sectionName: llm-gw
   rules:
-    - backendRefs:
-        - name: httpbin
-          port: 8000
+  - backendRefs:
+    - group: inference.networking.x-k8s.io
+      kind: InferencePool
+      name: vllm-llama2-7b-pool
+      port: 8000
+      weight: 1
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+    timeouts:
+      backendRequest: 24h
+      request: 24h
 EOF
 }
 
 test_kgtw_connectivity() {
-  echo "Testing HTTP connectivity through Kgateway..."
+  echo "Testing connectivity through gateway/inference-gateway..."
 
   retries=0
   gtw_ip=""
 
   while [ $retries -lt $MAX_RETRIES ]; do
-    echo "Fetching the IP for gateway/http ..."
-    gtw_ip=$(kubectl get gateway/http -n $NS -o jsonpath='{.status.addresses[0].value}')
+    echo "Fetching the IP for gateway/inference-gateway ..."
+    gtw_ip=$(kubectl get gateway/inference-gateway -n $NS -o jsonpath='{.status.addresses[0].value}')
 
     if [ -z "$gtw_ip" ]; then
-      echo "Attempt $((retries + 1)): Failed to get gateway/http IP. Retrying in $BACKOFF_TIME seconds..."
+      echo "Attempt $((retries + 1)): Failed to get gateway/inference-gateway IP. Retrying in $BACKOFF_TIME seconds..."
       retries=$((retries + 1))
       sleep $BACKOFF_TIME
     else
@@ -196,26 +256,30 @@ test_kgtw_connectivity() {
   done
 
   if [ -z "$gtw_ip" ]; then
-    echo "Failed to get gateway/http IP after $retries retries."
+    echo "Failed to get gateway/inference-gateway IP after $retries retries."
     return 1
   fi
 
   retries=0
   sleep $BACKOFF_TIME
+  data='{"model": "tweet-summary","prompt": "Write as if you were a critic: San Francisco","max_tokens": 100,"temperature": 0}'
 
   while [ $retries -lt $MAX_RETRIES ]; do
     if [ "$CURL_POD" == "true" ]; then
       echo "Using curl Pod to test connectivity..."
-      response=$(kubectl exec -n $NS po/curl -- curl -s -H "host: www.example.com:8080" http://$gtw_ip:8080/headers)
+      response=$(kubectl exec -n $NS po/curl -- curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
     else
-      response=$(curl -s -H "host: www.example.com:8080" http://$gtw_ip:8080/headers)
+      response=$(curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
     fi
 
-    if echo "$response" | grep -q "www.example.com:8080"; then
-      echo "Connection successful! Response includes 'www.example.com:8080'."
+    if echo "$response" | grep -q "HTTP/1.1 200 OK"; then
+      echo "Connection successful! Received HTTP 200 OK."
+      echo ""
+      echo "Try for yourself with the following command:"
+      echo "kubectl exec po/curl -- curl -i \"$gtw_ip:8081/v1/completions\" -H 'Content-Type: application/json' -d '$data'"
       return 0
     else
-      echo "Attempt $((retries + 1)): Response does not include 'www.example.com:8080'. Retrying in $BACKOFF_TIME seconds..."
+      echo "Attempt $((retries + 1)): Did not receive HTTP 200 OK. Retrying in $BACKOFF_TIME seconds..."
       retries=$((retries + 1))
       sleep $BACKOFF_TIME
     fi
@@ -237,6 +301,8 @@ main() {
     manage_ns
   fi
 
+  manage_hf_secret
+
   manage_gateway_parameters
 
   check_and_manage_metallb
@@ -245,16 +311,20 @@ main() {
 
   manage_gtw_resource
 
-  manage_httpbin_resources
+  manage_model_resources
+
+  manage_infmodel_resource
+
+  manage_infpool_resource
 
   manage_httproute_resource
 
   if [ "$action" = "apply" ]; then
-    deploy_rollout_status "httpbin" $NS
+    deploy_rollout_status "vllm-llama2-7b-pool" $NS
 
-    check_gateway_status "http" $NS
+    check_gateway_status "inference-gateway" $NS
 
-    check_httproute_status "httpbin" $NS
+    check_httproute_status "llm-route" $NS
 
     test_kgtw_connectivity
   fi
