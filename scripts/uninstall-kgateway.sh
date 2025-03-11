@@ -29,6 +29,8 @@ if [[ "$UNINSTALL_CRDS" == true ]]; then
     "gateways.gateway.networking.k8s.io"
     "httproutes.gateway.networking.k8s.io"
     "referencegrants.gateway.networking.k8s.io"
+    "inferencepools.inference.networking.x-k8s.io"
+    "inferencemodels.inference.networking.x-k8s.io"
   )
 
   CRDS_EXISTS=false
@@ -43,8 +45,10 @@ if [[ "$UNINSTALL_CRDS" == true ]]; then
   if [ "$CRDS_EXISTS" = true ]; then
     echo "Uninstalling Kubernetes Gateway API CRDs..."
     kubectl delete -f https://github.com/kubernetes-sigs/gateway-api/releases/download/$GATEWAY_API_VERSION/standard-install.yaml
+    echo "Uninstalling missing $INF_EXT_VERSION Kubernetes Inference Extension CRDs ..."
+    kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$INF_EXT_VERSION/manifests.yaml
   else
-    echo "No Gateway API CRDs are present."
+    echo "No Gateway API and Inference Extension CRDs are present."
   fi
 fi
 
