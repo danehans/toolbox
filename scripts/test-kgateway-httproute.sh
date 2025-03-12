@@ -38,8 +38,12 @@ manage_ns() {
 
   # Manage the user-provided namespace.
   if [ "$action" == "apply" ]; then
-    echo "Creating namespace $NS..."
-    kubectl create namespace $NS
+    if ! kubectl get namespace "$NS" > /dev/null 2>&1; then
+      echo "Creating namespace $NS..."
+      kubectl create namespace $NS
+    else
+    echo "Namespace $NS already exists."
+    fi
   else
     echo "Deleting namespace $NS..."
     kubectl delete namespace $NS --force
@@ -66,7 +70,7 @@ spec:
     args: ["-c", "while true; do sleep 1000; done"]
 EOF
       echo "Curl client Pod created successfully."
-    else
+    elif kubectl get po/curl "$NS" > /dev/null 2>&1; then
       echo "Deleting curl client Pod in namespace $NS..."
       kubectl delete po/curl -n $NS --force
     fi

@@ -33,7 +33,7 @@ set_action() {
 
 # Create or delete the HF token secret.
 manage_hf_secret() {
-  if [ "$HF_TOKEN" == "" ]; then
+  if [ "$HF_TOKEN" == "" ] && [ "$1" == "apply" ]; then
     echo "You must set HF_TOKEN to your Hugging Face token."
     exit 1
   fi
@@ -46,8 +46,12 @@ manage_hf_secret() {
       echo "Secret hf-token in namespace $NS already exists."
     fi
   else
-    echo "Deleting secret in namespace $NS..."
-    kubectl -n $NS delete secret/hf-token
+    if kubectl -n $NS get secret/hf-token > /dev/null 2>&1; then
+      echo "Deleting secret in namespace $NS..."
+      kubectl -n $NS delete secret/hf-token
+    else
+      echo "Secret hf-token in namespace $NS already deleted."
+    fi
   fi
 }
 
@@ -91,7 +95,7 @@ spec:
     args: ["-c", "while true; do sleep 1000; done"]
 EOF
       echo "Curl client Pod created successfully."
-    else
+    elif kubectl get po/curl "$NS" > /dev/null 2>&1; then
       echo "Deleting curl client Pod in namespace $NS..."
       kubectl delete po/curl -n $NS --force
     fi
