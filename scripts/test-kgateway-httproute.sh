@@ -54,7 +54,7 @@ manage_curl_pod() {
   if [ "$CURL_POD" == "true" ]; then
     if [ "$action" == "apply" ]; then
       echo "Ensuring curl client Pod is running in namespace $NS..."
-      kubectl apply -n $NS -f - <<EOF
+      kubectl apply -n "$NS" -f - <<EOF
 apiVersion: v1
 kind: Pod
 metadata:
@@ -70,9 +70,15 @@ spec:
     args: ["-c", "while true; do sleep 1000; done"]
 EOF
       echo "Curl client Pod created successfully."
-    elif kubectl get po/curl "$NS" > /dev/null 2>&1; then
-      echo "Deleting curl client Pod in namespace $NS..."
-      kubectl delete po/curl -n $NS --force
+
+    elif [ "$action" == "delete" ]; then
+      # Only delete if the Pod actually exists:
+      if kubectl get po/curl -n "$NS" > /dev/null 2>&1; then
+        echo "Deleting curl client Pod in namespace $NS..."
+        kubectl delete po/curl -n "$NS" --force
+      else
+        echo "Curl client Pod does not exist in namespace $NS."
+      fi
     fi
   fi
 }

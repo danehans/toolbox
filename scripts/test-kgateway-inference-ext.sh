@@ -23,6 +23,40 @@ for cmd in kubectl helm; do
   fi
 done
 
+check_k8s_version() {
+  # Grab the line that starts with "Server Version:" from `kubectl version`.
+  local server_line
+  server_line=$(kubectl version | grep "Server Version")
+
+  if [ -z "$server_line" ]; then
+    echo "Could not parse Kubernetes server version from 'kubectl version' output."
+    exit 1
+  fi
+
+  # Extract the third field (v1.32.0), remove leading "v".
+  local server_version
+  server_version=$(echo "$server_line" | awk '{print $3}' | sed 's/^v//')
+
+  # Extract major and minor.
+  local major minor
+  major=$(echo "$server_version" | cut -d '.' -f1)
+  minor=$(echo "$server_version" | cut -d '.' -f2)
+
+  # Validate numeric version.
+  if ! [[ "$major" =~ ^[0-9]+$ && "$minor" =~ ^[0-9]+$ ]]; then
+    echo "Could not parse Kubernetes server version: $server_version"
+    exit 1
+  fi
+
+  # Compare to support version (1.29).
+  if [ "$major" -lt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -lt 29 ]; }; then
+    echo "Error: Kubernetes server version v${major}.${minor} is not supported. Minimum required version is v1.29."
+    exit 1
+  fi
+
+  echo "Kubernetes server is at least v1.29 (Detected v${major}.${minor}). Continuing..."
+}
+
 set_action() {
   if [ "$1" != "apply" ] && [ "$1" != "delete" ]; then
     echo "Invalid action. Use 'apply' or 'delete'."
@@ -33,7 +67,7 @@ set_action() {
 
 # Create or delete the HF token secret.
 manage_hf_secret() {
-  if [ "$HF_TOKEN" == "" ] && [ "$1" == "apply" ]; then
+  if [ "$action" == "apply" ] && [ -z "$HF_TOKEN" ]; then
     echo "You must set HF_TOKEN to your Hugging Face token."
     exit 1
   fi
@@ -79,7 +113,7 @@ manage_curl_pod() {
   if [ "$CURL_POD" == "true" ]; then
     if [ "$action" == "apply" ]; then
       echo "Ensuring curl client Pod is running in namespace $NS..."
-      kubectl apply -n $NS -f - <<EOF
+      kubectl apply -n "$NS" -f - <<EOF
 apiVersion: v1
 kind: Pod
 metadata:
@@ -95,9 +129,15 @@ spec:
     args: ["-c", "while true; do sleep 1000; done"]
 EOF
       echo "Curl client Pod created successfully."
-    elif kubectl get po/curl "$NS" > /dev/null 2>&1; then
-      echo "Deleting curl client Pod in namespace $NS..."
-      kubectl delete po/curl -n $NS --force
+
+    elif [ "$action" == "delete" ]; then
+      # Only delete if the Pod actually exists:
+      if kubectl get po/curl -n "$NS" > /dev/null 2>&1; then
+        echo "Deleting curl client Pod in namespace $NS..."
+        kubectl delete po/curl -n "$NS" --force
+      else
+        echo "Curl client Pod does not exist in namespace $NS."
+      fi
     fi
   fi
 }
@@ -135,7 +175,7 @@ manage_gateway_parameters() {
     if [ "$action" == "apply" ]; then
       service_type="ClusterIP"
     fi
-    kubectl patch gwp/kgateway -n kgateway-system --type='merge' -p "
+    kubectl patch gatewayparameters/kgateway -n kgateway-system --type='merge' -p "
 spec:
   kube:
     service:
@@ -151,13 +191,15 @@ manage_model_resources() {
 
   if [ "$action" == "apply" ]; then
     # Apply the model server resources
-    kubectl -n $NS apply -f https://gist.githubusercontent.com/danehans/d43c6b5bd706ba5ba356ec992cd31217/raw/f149cc470291e47de676c48fb5481f805d8ec909/vllm_llama_deployment.yaml
+    # v0.2.0-rc.1 manifest contains a bug.
+    kubectl -n $NS apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml
     # Scale the deployment down
     echo "Scaling model server deployment to $NUM_REPLICAS replicas..."
-    kubectl -n $NS scale deploy/vllm-llama2-7b-pool --replicas=$NUM_REPLICAS
+    kubectl -n $NS scale deploy/my-pool --replicas=$NUM_REPLICAS
   else
     # Delete the model server resources
-    kubectl -n $NS delete -f https://gist.githubusercontent.com/danehans/d43c6b5bd706ba5ba356ec992cd31217/raw/f149cc470291e47de676c48fb5481f805d8ec909/vllm_llama_deployment.yaml
+    # v0.2.0-rc.1 manifest contains a bug.
+    kubectl -n $NS delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml
   fi
 }
 
@@ -184,33 +226,29 @@ EOF
 # Create or delete the Kubernetes InferenceModel resource
 manage_infmodel_resource() {
   echo "Managing InferenceModel resource with action: $action"
-  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/pkg/manifests/inferencemodel.yaml
+  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/inferencemodel.yaml
 }
 
 # Create or delete the Kubernetes InferencePool resource.
 manage_infpool_resource() {
-  api_ver="v1alpha2"
-  if [ "$INF_EXT_VERSION" == "v0.1.0" ]; then
-    api_ver="v1alpha1"
-  fi
-  echo "Managing Kubernetes InferencePool resource..."
+  echo "Managing InferencePool resource..."
   kubectl $action -n $NS -f - <<EOF
-apiVersion: inference.networking.x-k8s.io/${api_ver}
+apiVersion: inference.networking.x-k8s.io/v1alpha2
 kind: InferencePool
 metadata:
-  name: vllm-llama2-7b-pool
+  name: my-pool
 spec:
   targetPortNumber: 8000
   selector:
-    app: vllm-llama2-7b-pool
+    app: my-pool
   extensionRef:
-    name: vllm-llama2-7b-pool-endpoint-picker
+    name: my-pool-endpoint-picker
 EOF
 }
 
 # Create or delete the Kubernetes httproute resource
 manage_httproute_resource() {
-  echo "Managing Kubernetes HTTPRoute resource..."
+  echo "Managing HTTPRoute resource..."
   kubectl $action -n $NS -f - <<EOF
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -226,7 +264,7 @@ spec:
   - backendRefs:
     - group: inference.networking.x-k8s.io
       kind: InferencePool
-      name: vllm-llama2-7b-pool
+      name: my-pool
       port: 8000
       weight: 1
     matches:
@@ -302,6 +340,7 @@ main() {
   set_action "$1"
 
   if [ "$action" = "apply" ]; then
+    check_k8s_version
     manage_ns
   fi
 
@@ -324,7 +363,7 @@ main() {
   manage_httproute_resource
 
   if [ "$action" = "apply" ]; then
-    deploy_rollout_status "vllm-llama2-7b-pool" $NS
+    deploy_rollout_status "my-pool" $NS
 
     check_gateway_status "inference-gateway" $NS
 

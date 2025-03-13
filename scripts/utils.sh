@@ -7,7 +7,7 @@ BACKOFF_TIME=${BACKOFF_TIME:-5}
 MAX_RETRIES=${MAX_RETRIES:-12}
 NS=${NS:-default}
 # The version of Gateway API Inference Extension to use.
-INF_EXT_VERSION=${INF_EXT_VERSION:-"v0.1.0"}
+INF_EXT_VERSION=${INF_EXT_VERSION:-"v0.2.0-rc.1"}
 # The version of Gateway API CRDs to install/uninstall.
 GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.2.1"}
 # The channel of Gateway API CRDs to install
