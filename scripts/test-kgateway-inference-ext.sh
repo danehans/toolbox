@@ -191,14 +191,12 @@ manage_model_resources() {
 
   if [ "$action" == "apply" ]; then
     # Apply the model server resources
-    # v0.2.0-rc.1 manifest contains a bug.
     kubectl -n $NS apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml
     # Scale the deployment down
     echo "Scaling model server deployment to $NUM_REPLICAS replicas..."
     kubectl -n $NS scale deploy/my-pool --replicas=$NUM_REPLICAS
   else
     # Delete the model server resources
-    # v0.2.0-rc.1 manifest contains a bug.
     kubectl -n $NS delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml
   fi
 }

@@ -116,7 +116,7 @@ manage_gateway_parameters() {
     if [ "$action" == "apply" ]; then
       service_type="ClusterIP"
     fi
-    kubectl patch gwp/kgateway -n kgateway-system --type='merge' -p "
+    kubectl patch gatewayparameters/kgateway -n kgateway-system --type='merge' -p "
 spec:
   kube:
     service:
