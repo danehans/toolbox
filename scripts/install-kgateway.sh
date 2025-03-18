@@ -68,6 +68,7 @@ helm upgrade --install kgateway "$HELM_CHART" \
   -n kgateway-system \
   --create-namespace \
   --set image.registry="$KGTW_REGISTRY" \
+  --set inferenceExtension.enabled=true \
   --version "$KGTW_VERSION"
 
 # Wait for the gloo deployment rollout to complete.
