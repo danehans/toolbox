@@ -2,10 +2,11 @@
 
 set -e
 
-# Set default back-off time, max retries, and namespace.
-BACKOFF_TIME=${BACKOFF_TIME:-5}
-MAX_RETRIES=${MAX_RETRIES:-12}
+# NS is the namespace to use for testing.
 NS=${NS:-default}
+# Set default back-off time, max retries, and namespace.
+BACKOFF_TIME=${BACKOFF_TIME:-3}
+MAX_RETRIES=${MAX_RETRIES:-15}
 # The version of Gateway API Inference Extension to use.
 INF_EXT_VERSION=${INF_EXT_VERSION:-"v0.2.0"}
 # The version of Gateway API CRDs to install/uninstall.
@@ -19,7 +20,8 @@ UNINSTALL_CRDS=${UNINSTALL_CRDS:-true}
 # The version of Istio to install.
 ISTIO_VERSION=${ISTIO_VERSION:-"1.23.1"}
 # The version of Kgateway to install.
-KGTW_VERSION=${KGTW_VERSION:-"v2.0.0-main"}
+# Use "v2.0.0-main" for upstream
+KGTW_VERSION=${KGTW_VERSION:-"1.0.1-dev"}
 # The version of Gloo Gateway to install.
 GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"v1.18.0"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for a daemonset/deployment rollout to complete.

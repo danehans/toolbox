@@ -109,12 +109,12 @@ The `install-kgateway.sh` script automates the installation of Kgateway on a Kub
 - `KGTW_VERSION`: The version of Kgateway to install. Defaults to "v2.0.0-main".
 - `KGTW_REGISTRY`: The name of the image registry to pull the Kgateway image from. Defaults to "ghcr.io/kgateway-dev".
 - `HELM_CHART`: The location of the Kgateway Helm chart. Specify the full path to the tarball for local charts. Defaults to "oci://ghcr.io/kgateway-dev/charts/kgateway".
+- `HELM_CRD_CHART`: The location of the Kgateway CRDs Helm chart. Specify the full path to the tarball for local charts. Defaults to "oci://ghcr.io/kgateway-dev/charts/kgateway".
 - `INSTALL_CRDS`: Install the Gateway API CRDs. Defaults to true.
 - `GATEWAY_API_VERSION`: The version of Gateway API CRDs to install. Defaults to "v1.2.1".
 - `GATEWAY_API_CHANNEL`: The channel of Gateway API CRDs to install. Defaults to "experimental" (required for TCPRoute testing).
 - `INF_EXT_VERSION`: The version of Gateway API Inference Extension to use. Defaults to "v0.1.0".
 - `SVC_TYPE`: The type of Service to use for Gateway resources. Defaults to "LoadBalancer".
-- `PULL_POLICY`: The pull policy to use for the Kgateway image. Defaults to "Always".
 
 ### Inference Extension Testing
 

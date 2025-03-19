@@ -5,10 +5,6 @@ set -e
 # Source the utility functions.
 source ./scripts/utils.sh
 
-# Set default values
-BACKOFF_TIME=${BACKOFF_TIME:-5}
-MAX_RETRIES=${MAX_RETRIES:-12}
-NS=${NS:-default}
 # NUM_REPLICAS defines the number of replicas to use for the httpbin backend deployment.
 NUM_REPLICAS=${NUM_REPLICAS:-1}
 

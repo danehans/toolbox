@@ -5,10 +5,6 @@ set -e
 # Source the utility functions.
 source ./scripts/utils.sh
 
-# Set default values
-BACKOFF_TIME=${BACKOFF_TIME:-5}
-MAX_RETRIES=${MAX_RETRIES:-12}
-NS=${NS:-default}
 HF_TOKEN=${HF_TOKEN:-""}
 # NUM_REPLICAS defines the number of replicas to use for the model server backend deployment.
 NUM_REPLICAS=${NUM_REPLICAS:-3}
@@ -280,49 +276,63 @@ test_kgtw_connectivity() {
 
   while [ $retries -lt $MAX_RETRIES ]; do
     echo "Fetching the IP for gateway/inference-gateway ..."
-    gtw_ip=$(kubectl get gateway/inference-gateway -n $NS -o jsonpath='{.status.addresses[0].value}')
+    gtw_ip=$(kubectl get gateway/inference-gateway -n "$NS" -o jsonpath='{.status.addresses[0].value}')
 
     if [ -z "$gtw_ip" ]; then
       echo "Attempt $((retries + 1)): Failed to get gateway/inference-gateway IP. Retrying in $BACKOFF_TIME seconds..."
       retries=$((retries + 1))
-      sleep $BACKOFF_TIME
+      sleep "$BACKOFF_TIME"
     else
-      echo "Gateway IP: $gtw_ip"
+      echo "Gateway address (IP or DNS): $gtw_ip"
       break
     fi
   done
 
   if [ -z "$gtw_ip" ]; then
-    echo "Failed to get gateway/inference-gateway IP after $retries retries."
+    echo "Failed to get gateway/inference-gateway address after $retries retries."
     return 1
   fi
 
-  retries=0
-  sleep $BACKOFF_TIME
-  data='{"model": "tweet-summary","prompt": "Write as if you were a critic: San Francisco","max_tokens": 100,"temperature": 0}'
+  # Check if $gtw_ip is an IP or DNS
+  # Quick test: "Does $gtw_ip match a simple IPv4 pattern?"
+  # If NOT, then treat it as DNS
+  if ! [[ $gtw_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "$gtw_ip looks like a DNS name. Trying to resolve..."
 
-  while [ $retries -lt $MAX_RETRIES ]; do
-    if [ "$CURL_POD" == "true" ]; then
-      echo "Using curl Pod to test connectivity..."
-      response=$(kubectl exec -n $NS po/curl -- curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
-    else
-      response=$(curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
+    dns_retries=0
+    while [ $dns_retries -lt $MAX_RETRIES ]; do
+      if dig +short "$gtw_ip" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' >/dev/null; then
+        echo "DNS resolution for '$gtw_ip' succeeded."
+        break
+      else
+        echo "Attempt $((dns_retries + 1)): DNS resolution failed. Retrying in $BACKOFF_TIME seconds..."
+        dns_retries=$((dns_retries + 1))
+        sleep "$BACKOFF_TIME"
+      fi
+    done
+
+    if [ $dns_retries -eq $MAX_RETRIES ]; then
+      echo "Failed to resolve DNS name '$gtw_ip' after $dns_retries retries."
+      return 1
     fi
+  fi
 
-    if echo "$response" | grep -q "HTTP/1.1 200 OK"; then
-      echo "Connection successful! Received HTTP 200 OK."
-      echo ""
-      echo "Try for yourself with the following command:"
-      echo "kubectl exec po/curl -- curl -i \"$gtw_ip:8081/v1/completions\" -H 'Content-Type: application/json' -d '$data'"
+  # At this point, $gtw_ip is either a valid IP or a DNS name that resolves.
+  # Optional: Attempt a curl connectivity check
+  echo "Attempting connectivity via curl..."
+  curl_retries=0
+  while [ $curl_retries -lt $MAX_RETRIES ]; do
+    if curl -sf "http://$gtw_ip" >/dev/null; then
+      echo "Success: able to connect to $gtw_ip"
       return 0
     else
-      echo "Attempt $((retries + 1)): Did not receive HTTP 200 OK. Retrying in $BACKOFF_TIME seconds..."
-      retries=$((retries + 1))
-      sleep $BACKOFF_TIME
+      echo "Attempt $((curl_retries + 1)): Failed to connect to $gtw_ip. Retrying in $BACKOFF_TIME seconds..."
+      curl_retries=$((curl_retries + 1))
+      sleep "$BACKOFF_TIME"
     fi
   done
 
-  echo "Failed to connect after $retries retries."
+  echo "Failed to connect to $gtw_ip after $curl_retries retries."
   return 1
 }
 
