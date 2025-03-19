@@ -13,6 +13,8 @@ HELM_CRD_CHART=${HELM_CRD_CHART:-"https://github.com/danehans/toolbox/raw/refs/h
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-"danehans"}
 # SVC_TYPE defines the type of Service to use for Gateway resources.
 SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
+# PULL_POLICY defines the pull policy for the Kgateway container image.
+PULL_POLICY=${PULL_POLICY:-"Always"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
@@ -83,6 +85,7 @@ echo "Installing Kgateway (version $KGTW_VERSION) in namespace 'kgateway-system'
 helm upgrade --install kgateway "$HELM_CHART" \
   -n kgateway-system \
   --set image.registry="$IMAGE_REGISTRY" \
+  --set controller.image.pullPolicy="$PULL_POLICY" \
   --set inferenceExtension.enabled=true \
   --set gatewayClass.service.type="$SVC_TYPE" \
   --version "$KGTW_VERSION"

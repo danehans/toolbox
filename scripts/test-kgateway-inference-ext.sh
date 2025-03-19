@@ -381,6 +381,9 @@ main() {
 
     check_gateway_status "inference-gateway" $NS
 
+    # Should not be needed but kgtw is not properly surfacing gtw status.
+    deploy_rollout_status "inference-gateway" $NS
+
     check_httproute_status "llm-route" $NS
 
     test_kgtw_connectivity
