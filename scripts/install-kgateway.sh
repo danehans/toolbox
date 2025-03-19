@@ -2,9 +2,12 @@
 
 set -e
 
-# The location of the Helm chart. Specify the full path to the tarball for local charts.
+# The location of the Kgateway Helm chart. Specify the full path to the tarball for local charts.
 HELM_CHART=${HELM_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway"}
-KGTW_REGISTRY=${KGTW_REGISTRY:-"ghcr.io/kgateway-dev"}
+# The location of the Kgateway CRDs Helm chart. Specify the full path to the tarball for local charts.
+HELM_CRD_CHART=${HELM_CRD_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway-crds"}
+# IMAGE_REGISTRY is the registry to use for the Kgateway images. Note: This is the same env var as Kgateway.
+IMAGE_REGISTRY=${IMAGE_REGISTRY:-"ghcr.io/kgateway-dev"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
@@ -61,13 +64,20 @@ if [[ -z "${KGTW_VERSION:-}" ]]; then
   exit 1
 fi
 
+echo "Installing Kgateway CRDs (version $KGTW_VERSION)..."
+
+# Install Kgateway CRDs.
+helm upgrade --install kgateway-crds "$HELM_CRD_CHART" \
+  -n kgateway-system \
+  --create-namespace \
+  --version "$KGTW_VERSION"
+
 echo "Installing Kgateway (version $KGTW_VERSION) in namespace 'kgateway-system'..."
 
 # Install Kgateway.
 helm upgrade --install kgateway "$HELM_CHART" \
   -n kgateway-system \
-  --create-namespace \
-  --set image.registry="$KGTW_REGISTRY" \
+  --set image.registry="$IMAGE_REGISTRY" \
   --set inferenceExtension.enabled=true \
   --version "$KGTW_VERSION"
 

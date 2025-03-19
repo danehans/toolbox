@@ -18,6 +18,9 @@ echo "Uninstalling Kgateway..."
 # Uninstall Kgateway
 helm uninstall kgateway -n kgateway-system
 
+# Uninstall Kgateway CRDs
+helm uninstall kgateway-crds -n kgateway-system
+
 # Delete the Kgateway namespace
 kubectl delete ns/kgateway-system
 
