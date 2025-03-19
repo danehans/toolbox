@@ -79,6 +79,8 @@ helm upgrade --install kgateway "$HELM_CHART" \
   -n kgateway-system \
   --set image.registry="$IMAGE_REGISTRY" \
   --set inferenceExtension.enabled=true \
+  --set gatewayClass.service.type=ClusterIP \
+  --set image.pullPolicy=Always \
   --version "$KGTW_VERSION"
 
 # Wait for the gloo deployment rollout to complete.
