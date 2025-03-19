@@ -8,6 +8,10 @@ HELM_CHART=${HELM_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway"}
 HELM_CRD_CHART=${HELM_CRD_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway-crds"}
 # IMAGE_REGISTRY is the registry to use for the Kgateway images. Note: This is the same env var as Kgateway.
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-"ghcr.io/kgateway-dev"}
+# SVC_TYPE defines the type of Service to use for Gateway resources.
+SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
+# PULL_POLICY defines the pull policy to use for the Kgateway image.
+PULL_POLICY=${PULL_POLICY:-"Always"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
@@ -79,8 +83,8 @@ helm upgrade --install kgateway "$HELM_CHART" \
   -n kgateway-system \
   --set image.registry="$IMAGE_REGISTRY" \
   --set inferenceExtension.enabled=true \
-  --set gatewayClass.service.type=ClusterIP \
-  --set image.pullPolicy=Always \
+  --set gatewayClass.service.type="$SVC_TYPE" \
+  --set image.pullPolicy="$PULL_POLICY" \
   --version "$KGTW_VERSION"
 
 # Wait for the gloo deployment rollout to complete.

@@ -24,6 +24,10 @@ KGTW_VERSION=${KGTW_VERSION:-"v2.0.0-main"}
 GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"v1.18.0"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for a daemonset/deployment rollout to complete.
 ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"10m"}
+# METAL_LB defines whether or not to use MetalLB for LoadBalancer type services.
+METAL_LB=${METAL_LB:-"false"}
+# CURL_POD defines whether to install a cURL client pod and use it to test connectivity.
+CURL_POD=${CURL_POD:-true}
 
 # Function to check if a command exists
 command_exists() {

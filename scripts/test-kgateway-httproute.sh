@@ -9,8 +9,6 @@ source ./scripts/utils.sh
 BACKOFF_TIME=${BACKOFF_TIME:-5}
 MAX_RETRIES=${MAX_RETRIES:-12}
 NS=${NS:-default}
-# CURL_POD defines whether to use a curl pod as a client to test connectivity.
-CURL_POD=${CURL_POD:-true}
 # NUM_REPLICAS defines the number of replicas to use for the httpbin backend deployment.
 NUM_REPLICAS=${NUM_REPLICAS:-1}
 
@@ -84,26 +82,28 @@ EOF
 }
 
 check_and_manage_metallb() {
-  if [ "$CURL_POD" == "false" ]; then
-    if [ "$action" == "apply" ]; then
-      if ! kubectl get namespace metallb-system >/dev/null 2>&1; then
-        echo "Namespace 'metallb-system' does not exist. Applying MetalLB configuration..."
-        if ! ./scripts/metallb.sh apply; then
-          echo "Error: Failed to apply MetalLB configuration."
-          exit 1
+  if [ "$METAL_LB" == "true" ]; then
+    if [ "$CURL_POD" == "false" ]; then
+      if [ "$action" == "apply" ]; then
+        if ! kubectl get namespace metallb-system >/dev/null 2>&1; then
+          echo "Namespace 'metallb-system' does not exist. Applying MetalLB configuration..."
+          if ! ./scripts/metallb.sh apply; then
+            echo "Error: Failed to apply MetalLB configuration."
+            exit 1
+          fi
+          echo "MetalLB configuration applied successfully."
+        else
+          echo "MetalLB is already installed."
         fi
-        echo "MetalLB configuration applied successfully."
-      else
-        echo "MetalLB is already installed."
-      fi
-    elif [ "$action" == "delete" ]; then
-      if kubectl get namespace metallb-system >/dev/null 2>&1; then
-        echo "Namespace 'metallb-system' exists. Deleting MetalLB configuration..."
-        if ! ./scripts/metallb.sh delete; then
-          echo "Error: Failed to delete MetalLB configuration."
-          exit 1
+      elif [ "$action" == "delete" ]; then
+        if kubectl get namespace metallb-system >/dev/null 2>&1; then
+          echo "Namespace 'metallb-system' exists. Deleting MetalLB configuration..."
+          if ! ./scripts/metallb.sh delete; then
+            echo "Error: Failed to delete MetalLB configuration."
+            exit 1
+          fi
+          echo "MetalLB configuration deleted successfully."
         fi
-        echo "MetalLB configuration deleted successfully."
       fi
     fi
   fi

@@ -4,58 +4,47 @@ This repository contains a collection of scripts to automate various tasks relat
 
 ## Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Utility Scripts](#utility-scripts)
-  - [Create a Kind Cluster](#create-a-kind-cluster)
-    - [Usage](#usage)
-    - [Arguments](#arguments)
-  - [Install MetalLB](#install-metallb)
-    - [Usage](#usage-1)
-    - [Arguments](#arguments-1)
-- [Kgateway](#kgateway)
-  - [Install Kgateway](#install-kgateway)
-    - [Usage](#usage-2)
-    - [User-Facing Variables](#user-facing-variables)
-  - [Inference Extension Testing](#inference-extension-testing)
-    - [Usage](#usage-2)
-    - [Arguments](#arguments-2)
-    - [User-Facing Variables](#user-facing-variables)
-  - [HTTPRoute Testing](#httproute-testing)
-    - [Usage](#usage-3)
-    - [Arguments](#arguments-3)
-    - [User-Facing Variables](#user-facing-variables-1)
-  - [TCPRoute Testing](#tcproute-testing)
-    - [Usage](#usage-4)
-    - [Arguments](#arguments-4)
-    - [User-Facing Variables](#user-facing-variables-1)
-  - [Uninstall Kgateway](#uninstall-kgateway)
-    - [Usage](#usage-4)
-- [Gloo Gateway](#gloo-gateway)
-  - [Install Gloo Gateway](#install-gloo-gateway)
-    - [Usage](#usage-5)
-    - [User-Facing Variables](#user-facing-variables-1)
-  - [HTTPRoute Testing](#httproute-testing-1)
-    - [Usage](#usage-6)
-    - [Arguments](#arguments-4)
-    - [User-Facing Variables](#user-facing-variables-1)
-  - [TCPRoute Testing](#tcproute-testing-1)
-    - [Usage](#usage-6)
-    - [Arguments](#arguments-5)
-    - [User-Facing Variables](#user-facing-variables-1)
-  - [Uninstall Gloo Gateway](#uninstall-gloo-gateway)
-    - [Usage](#usage-7)
-- [Istio](#istio)
-  - [Install Istio](#install-istio)
-    - [Usage](#usage-7)
-    - [Arguments](#arguments-6)
-    - [User-Facing Variables](#user-facing-variables-2)
-  - [Ambient Testing](#ambient-testing)
-    - [Usage](#usage-7)
-    - [Arguments](#arguments-6)
-    - [User-Facing Variables](#user-facing-variables-3)
-  - [Uninstall Istio](#uninstall-istio)
-    - [Usage](#usage-8)
-    - [Arguments](#arguments-7)"}
+- [Toolbox](#toolbox)
+  - [Table of Contents](#table-of-contents)
+  - [Prerequisites](#prerequisites)
+  - [Utility Scripts](#utility-scripts)
+    - [Create a Kind Cluster](#create-a-kind-cluster)
+      - [Usage](#usage)
+      - [Arguments](#arguments)
+    - [Install MetalLB](#install-metallb)
+      - [Usage](#usage-1)
+      - [Arguments](#arguments-1)
+  - [Kgateway](#kgateway)
+    - [Install Kgateway](#install-kgateway)
+      - [Usage](#usage-2)
+      - [User-Facing Variables](#user-facing-variables)
+    - [Inference Extension Testing](#inference-extension-testing)
+      - [Usage](#usage-3)
+      - [Arguments](#arguments-2)
+      - [User-Facing Variables](#user-facing-variables-1)
+    - [HTTPRoute Testing](#httproute-testing)
+      - [Usage](#usage-4)
+      - [Arguments](#arguments-3)
+      - [User-Facing Variables](#user-facing-variables-2)
+    - [TCPRoute Testing](#tcproute-testing)
+      - [Usage](#usage-5)
+      - [Arguments](#arguments-4)
+      - [User-Facing Variables](#user-facing-variables-3)
+    - [Uninstall Kgateway](#uninstall-kgateway)
+      - [Usage](#usage-6)
+  - [Istio](#istio)
+    - [Install Istio](#install-istio)
+      - [Usage](#usage-7)
+      - [Arguments](#arguments-5)
+      - [User-Facing Variables](#user-facing-variables-4)
+    - [Ambient Testing](#ambient-testing)
+      - [Usage](#usage-8)
+      - [Arguments](#arguments-6)
+      - [User-Facing Variables](#user-facing-variables-5)
+    - [Uninstall Istio](#uninstall-istio)
+      - [Usage](#usage-9)
+      - [Arguments](#arguments-7)
+  - [Contributing](#contributing)
 
 ## Prerequisites
 
@@ -124,6 +113,8 @@ The `install-kgateway.sh` script automates the installation of Kgateway on a Kub
 - `GATEWAY_API_VERSION`: The version of Gateway API CRDs to install. Defaults to "v1.2.1".
 - `GATEWAY_API_CHANNEL`: The channel of Gateway API CRDs to install. Defaults to "experimental" (required for TCPRoute testing).
 - `INF_EXT_VERSION`: The version of Gateway API Inference Extension to use. Defaults to "v0.1.0".
+- `SVC_TYPE`: The type of Service to use for Gateway resources. Defaults to "LoadBalancer".
+- `PULL_POLICY`: The pull policy to use for the Kgateway image. Defaults to "Always".
 
 ### Inference Extension Testing
 
@@ -142,12 +133,14 @@ The `test-kgateway-inference-ext.sh` script automates the setup and testing of G
 
 #### User-Facing Variables
 
-- `HF_TOKEN`: Your Hugging Face API token with access to the Llama-2-7b-hf model. Defaults to "" so it's required.
+- `HF_TOKEN`: Your Hugging Face API token with access to the Llama-2-7b-hf model. Defaults to "" is required when `PROC_TYPE=gpu` (default).
 - `NS`: The namspace to use for testing. The script will create the namespace if it does not exist. Defaults to "" (meaning the default namespace).
-- `NUM_REPLICAS`: The number of replicas for the model server deployment. Defaults to `1`.
+- `NUM_REPLICAS`: The number of replicas for the model server deployment. Defaults to `3`.
 - `CURL_POD`: Whether or not to use a pod to run the client curl commands. Defaults to `true`.
 - `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
 - `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
+- `PROC_TYPE`: The processor type to use for vLLM, either "cpu" or "gpu" (default).
+- `METAL_LB`: Whether or not to use MetalLB for LoadBalancer type services. Defaults to "false"
 
 ### HTTPRoute Testing
 
@@ -168,8 +161,10 @@ The `test-kgateway-httproute.sh` script automates the setup and testing of HTTPr
 
 - `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
 - `CURL_POD`: Whether or not to use a pod to run the client curl commands. Defaults to `true`.
+- `NUM_REPLICAS`: The number of replicas for the echo server deployment. Defaults to `1`.
 - `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
 - `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
+- `METAL_LB`: Whether or not to use MetalLB for LoadBalancer type services. Defaults to "false"
 
 Example
 
@@ -214,96 +209,6 @@ The `uninstall-kgateway.sh` script automates the removal of Kgateway on the Kube
 
 ```bash
 ./scripts/uninstall-kgateway.sh
-```
-
-## Gloo Gateway
-
-[Gloo Gateway](https://docs.solo.io/gloo-edge/main/) is a feature-rich, Envoy-powered, Kubernetes-native ingress controller, and next-generation API gateway.
-
-### Install Gloo Gateway
-
-The `install-gloo-gateway.sh` script automates the installation of Gloo Gateway on a Kubernetes cluster.
-
-#### Usage
-
-```bash
-./scripts/install-gloo-gateway.sh
-```
-
-#### User-Facing Variables
-
-- `GLOO_GTW_VERSION`: The version of Gloo Gateway to install. Defaults to "v1.18.0-rc4".
-- `HELM_CHART`: The location of the Gloo Gateway Helm chart. Specify the full path to the tarball for local charts. Defaults to "gloo/gloo".
-- `INSTALL_CRDS`: Install the Gateway API CRDs. Defaults to true.
-- `GATEWAY_API_VERSION`: The version of Gateway API CRDs to install. Defaults to "v1.2.1".
-- `GATEWAY_API_CHANNEL`: The channel of Gateway API CRDs to install. Defaults to "experimental" (required for TCPRoute testing).
-
-### HTTPRoute Testing
-
-The `test-gloo-gateway-httproute.sh` script automates the setup and testing of HTTProute support for Gloo Gateway (`./scripts/install-gloo-gateway.sh` required).
-
-#### Usage
-
-```bash
-./scripts/test-gloo-gateway-httproute.sh [apply|delete]
-```
-
-#### Arguments
-
-- `apply`: Deploy all resources and test connectivity.
-- `delete`: Clean up all resources.
-
-#### User-Facing Variables
-
-- `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
-- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
-- `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
-
-Example
-
-```bash
-NS=test BACKOFF_TIME=10 ./scripts/test-gloo-gateway-httproute.sh apply
-```
-
-This command creates namespace 'test' and applies the Kubernetes resources in this namespace with a 10-second backoff time between connectivity testing retries.
-
-### TCPRoute Testing
-
-The `test-gloo-gateway-tcproute.sh` script automates the setup and testing of TCProute support for Gloo Gateway (`./scripts/install-gloo-gateway.sh` required).
-
-#### Usage
-
-```bash
-./scripts/test-gloo-gateway-tcproute.sh [apply|delete]
-```
-
-#### Arguments
-
-- `apply`: Deploy all resources and test connectivity.
-- `delete`: Clean up all resources.
-
-#### User-Facing Variables
-
-- `NS`: Specifies the namespace in which resources will be created or deleted. If a different namespace is used, the script will create it if it doesn't already exist. Defaults to "default"
-- `BACKOFF_TIME`: Specifies the time in seconds to wait between retries during connectivity testing. Defaults to 5.
-- `MAX_RETRIES`: The maximum number of retry attempts for connectivity testing. Defaults to 12.
-
-Example
-
-```bash
-NS=test BACKOFF_TIME=10 ./scripts/test-gloo-gateway-tcproute.sh apply
-```
-
-This command creates namespace 'test' and applies the Kubernetes resources in this namespace with a 10-second backoff time between connectivity testing retries.
-
-### Uninstall Gloo Gateway
-
-The `uninstall-gloo-gateway.sh` script automates the removal of Gloo Gateway on the Kubernetes cluster in the current kubectl context.
-
-#### Usage
-
-```bash
-./scripts/uninstall-gloo-gateway.sh
 ```
 
 ## Istio

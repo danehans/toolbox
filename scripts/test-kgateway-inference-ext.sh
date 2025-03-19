@@ -10,10 +10,10 @@ BACKOFF_TIME=${BACKOFF_TIME:-5}
 MAX_RETRIES=${MAX_RETRIES:-12}
 NS=${NS:-default}
 HF_TOKEN=${HF_TOKEN:-""}
-# CURL_POD defines whether to use a curl pod as a client to test connectivity.
-CURL_POD=${CURL_POD:-true}
 # NUM_REPLICAS defines the number of replicas to use for the model server backend deployment.
-NUM_REPLICAS=${NUM_REPLICAS:-1}
+NUM_REPLICAS=${NUM_REPLICAS:-3}
+# PROC_TYPE defines the processor type to use for vLLM, either "cpu" or "gpu" (default).
+PROC_TYPE=${PROC_TYPE:-"gpu"}
 
 # Check if required CLI tools are installed.
 for cmd in kubectl helm; do
@@ -67,24 +67,26 @@ set_action() {
 
 # Create or delete the HF token secret.
 manage_hf_secret() {
-  if [ "$action" == "apply" ] && [ -z "$HF_TOKEN" ]; then
+  if [ "$action" == "apply" ] && [ "$PROC_TYPE" == "gpu" ] && [ -z "$HF_TOKEN" ]; then
     echo "You must set HF_TOKEN to your Hugging Face token."
     exit 1
   fi
 
-  if [ "$action" == "apply" ]; then
-    if ! kubectl -n $NS get secret/hf-token > /dev/null 2>&1; then
-      echo "Creating secret in namespace $NS..."
-      kubectl -n $NS create secret generic hf-token --from-literal=token=$HF_TOKEN
+  if [ "$PROC_TYPE" == "gpu" ]; then
+    if [ "$action" == "apply" ]; then
+      if ! kubectl -n $NS get secret/hf-token > /dev/null 2>&1; then
+        echo "Creating secret in namespace $NS..."
+        kubectl -n $NS create secret generic hf-token --from-literal=token=$HF_TOKEN
+      else
+        echo "Secret hf-token in namespace $NS already exists."
+      fi
     else
-      echo "Secret hf-token in namespace $NS already exists."
-    fi
-  else
-    if kubectl -n $NS get secret/hf-token > /dev/null 2>&1; then
-      echo "Deleting secret in namespace $NS..."
-      kubectl -n $NS delete secret/hf-token
-    else
-      echo "Secret hf-token in namespace $NS already deleted."
+      if kubectl -n $NS get secret/hf-token > /dev/null 2>&1; then
+        echo "Deleting secret in namespace $NS..."
+        kubectl -n $NS delete secret/hf-token
+      else
+        echo "Secret hf-token in namespace $NS already deleted."
+      fi
     fi
   fi
 }
@@ -143,7 +145,7 @@ EOF
 }
 
 check_and_manage_metallb() {
-  if [ "$CURL_POD" == "false" ]; then
+  if [ "$METAL_LB" == "true" ]; then
     if [ "$action" == "apply" ]; then
       if ! kubectl get namespace metallb-system >/dev/null 2>&1; then
         echo "Namespace 'metallb-system' does not exist. Applying MetalLB configuration..."
@@ -168,36 +170,30 @@ check_and_manage_metallb() {
   fi
 }
 
-manage_gateway_parameters() {
-  if [ "$CURL_POD" == "true" ]; then
-    echo "Managing GatewayParameters for Kgateway..."
-    service_type="LoadBalancer"
-    if [ "$action" == "apply" ]; then
-      service_type="ClusterIP"
-    fi
-    kubectl patch gatewayparameters/kgateway -n kgateway-system --type='merge' -p "
-spec:
-  kube:
-    service:
-      type: ${service_type}
-  "
-    echo "GatewayParameters updated: spec.kube.service.type=${service_type}"
-  fi
-}
-
 # Create or delete the model server Kubernetes resource.
 manage_model_resources() {
   echo "Managing Kubernetes resources for model server with action: $action"
 
+  # Set the vllm deployment manifest based on the processor type.
+  url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml"
+  if [ "$PROC_TYPE" != "gpu" ]; then
+    url="https://gist.githubusercontent.com/danehans/d43c6b5bd706ba5ba356ec992cd31217/raw/80f004324735af51496df890ab48923ca02ca786/vllm_cpu_deployment.yaml"
+  fi
+
   if [ "$action" == "apply" ]; then
     # Apply the model server resources
-    kubectl -n $NS apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml
-    # Scale the deployment down
-    echo "Scaling model server deployment to $NUM_REPLICAS replicas..."
-    kubectl -n $NS scale deploy/my-pool --replicas=$NUM_REPLICAS
+    kubectl -n "$NS" apply -f "$url"
+
+    # Only scale if NUM_REPLICAS < 3
+    if [ "$NUM_REPLICAS" -lt 3 ] || [ "$NUM_REPLICAS" -gt 3 ]; then
+      echo "Scaling model server deployment to $NUM_REPLICAS replicas..."
+      kubectl -n "$NS" scale deploy/my-pool --replicas="$NUM_REPLICAS"
+    else
+      echo "NUM_REPLICAS is $NUM_REPLICAS, which is not less than 3. Skipping scaling."
+    fi
   else
     # Delete the model server resources
-    kubectl -n $NS delete -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml
+    kubectl -n "$NS" delete -f "$url"
   fi
 }
 
@@ -221,10 +217,11 @@ spec:
 EOF
 }
 
-# Create or delete the Kubernetes InferenceModel resource
+# Create or delete the Kubernetes InferenceModel resource.
+# TODO: Use upstream url when the manifests settle down.
 manage_infmodel_resource() {
   echo "Managing InferenceModel resource with action: $action"
-  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/inferencemodel.yaml
+  kubectl $action -n $NS -f https://gist.githubusercontent.com/danehans/4e980e79402fbb6e6ff987c99b832dce/raw/d176cf648336d96e9b05f95645df607044d09816/inferencemodel.yaml
 }
 
 # Create or delete the Kubernetes InferencePool resource.
@@ -343,8 +340,6 @@ main() {
   fi
 
   manage_hf_secret
-
-  manage_gateway_parameters
 
   check_and_manage_metallb
 
