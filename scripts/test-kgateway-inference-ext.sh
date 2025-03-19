@@ -321,14 +321,25 @@ test_kgtw_connectivity() {
   # Optional: Attempt a curl connectivity check
   echo "Attempting connectivity via curl..."
   curl_retries=0
+  data='{"model": "tweet-summary","prompt": "Write as if you were a critic: San Francisco","max_tokens": 100,"temperature": 0}'
   while [ $curl_retries -lt $MAX_RETRIES ]; do
-    if curl -sf "http://$gtw_ip" >/dev/null; then
-      echo "Success: able to connect to $gtw_ip"
+    if [ "$CURL_POD" == "true" ]; then
+      echo "Using curl Pod to test connectivity..."
+      response=$(kubectl exec -n $NS po/curl -- curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
+    else
+      response=$(curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
+    fi
+
+    if echo "$response" | grep -q "HTTP/1.1 200 OK"; then
+      echo "Connection successful! Received HTTP 200 OK."
+      echo ""
+      echo "Try for yourself with the following command:"
+      echo "kubectl exec po/curl -- curl -i \"$gtw_ip:8081/v1/completions\" -H 'Content-Type: application/json' -d '$data'"
       return 0
     else
-      echo "Attempt $((curl_retries + 1)): Failed to connect to $gtw_ip. Retrying in $BACKOFF_TIME seconds..."
-      curl_retries=$((curl_retries + 1))
-      sleep "$BACKOFF_TIME"
+      echo "Attempt $((retries + 1)): Did not receive HTTP 200 OK. Retrying in $BACKOFF_TIME seconds..."
+      retries=$((retries + 1))
+      sleep $BACKOFF_TIME
     fi
   done
 

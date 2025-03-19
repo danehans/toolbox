@@ -13,8 +13,6 @@ HELM_CRD_CHART=${HELM_CRD_CHART:-"https://github.com/danehans/toolbox/raw/refs/h
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-"danehans"}
 # SVC_TYPE defines the type of Service to use for Gateway resources.
 SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
-# PULL_POLICY defines the pull policy to use for the Kgateway image.
-PULL_POLICY=${PULL_POLICY:-"Always"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
