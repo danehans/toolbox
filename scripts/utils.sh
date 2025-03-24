@@ -27,9 +27,17 @@ GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"v1.18.0"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for a daemonset/deployment rollout to complete.
 ROLLOUT_TIMEOUT=${ROLLOUT_TIMEOUT:-"10m"}
 # METAL_LB defines whether or not to use MetalLB for LoadBalancer type services.
-METAL_LB=${METAL_LB:-"false"}
+METAL_LB=${METAL_LB:-false}
 # CURL_POD defines whether to install a cURL client pod and use it to test connectivity.
 CURL_POD=${CURL_POD:-true}
+# INF_EXT defines whether to enable gateway API inference extensions.
+INF_EXT=${INF_EXT:-true}
+# INF_EXT_DEPLOY defines the name of the EPP deployment.
+# Options are:
+#  - "inference-gateway-ext-proc" for upstream manifest (default).
+#  - "" for Kgateway auto deployer.
+#  - Specify the name of your own inference extension deployment.
+INF_EXT_DEPLOY=${INF_EXT_DEPLOY:-"inference-gateway-ext-proc"}
 
 # Function to check if a command exists
 command_exists() {

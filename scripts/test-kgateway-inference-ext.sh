@@ -173,6 +173,7 @@ manage_model_resources() {
   # Set the vllm deployment manifest based on the processor type.
   url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml"
   if [ "$PROC_TYPE" != "gpu" ]; then
+    # TODO: Transition to upstream GPU deployment.
     url="https://gist.githubusercontent.com/danehans/d43c6b5bd706ba5ba356ec992cd31217/raw/80f004324735af51496df890ab48923ca02ca786/vllm_cpu_deployment.yaml"
   fi
 
@@ -222,8 +223,9 @@ manage_infmodel_resource() {
 
 # Create or delete the Kubernetes InferencePool resource.
 manage_infpool_resource() {
-  echo "Managing InferencePool resource..."
-  kubectl $action -n $NS -f - <<EOF
+  if [ "$INF_EXT_DEPLOY" == "" ]; then
+    echo "Managing InferencePool with action: $action"
+    kubectl $action -n $NS -f - <<EOF
 apiVersion: inference.networking.x-k8s.io/v1alpha2
 kind: InferencePool
 metadata:
@@ -235,6 +237,10 @@ spec:
   extensionRef:
     name: my-pool-endpoint-picker
 EOF
+  elif [ "$INF_EXT_DEPLOY" == "inference-gateway-ext-proc" ]; then
+    echo "Managing EPP Inference Extension with action: $action"
+    kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/ext_proc.yaml
+  fi
 }
 
 # Create or delete the Kubernetes httproute resource
@@ -377,12 +383,22 @@ main() {
   manage_httproute_resource
 
   if [ "$action" = "apply" ]; then
-    deploy_rollout_status "my-pool" $NS
+    # Set the EPP deployment name to check status.
+    epp_deploy_name="my-pool-endpoint-picker"
+    if [ "$INF_EXT_DEPLOY" != "" ]; then
+      epp_deploy_name="$INF_EXT_DEPLOY"
+    fi
 
-    check_gateway_status "inference-gateway" $NS
+    # Wait for the EPP deployment.
+    deploy_rollout_status "$epp_deploy_name" $NS
+
+    # Wait for the model server deployment.
+    deploy_rollout_status "my-pool" $NS
 
     # Should not be needed but kgtw is not properly surfacing gtw status.
     deploy_rollout_status "inference-gateway" $NS
+
+    check_gateway_status "inference-gateway" $NS
 
     check_httproute_status "llm-route" $NS
 
