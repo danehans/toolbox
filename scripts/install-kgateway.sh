@@ -11,8 +11,6 @@ HELM_CRD_CHART=${HELM_CRD_CHART:-"https://github.com/danehans/toolbox/raw/refs/h
 # IMAGE_REGISTRY is the registry to use for the Kgateway images. Note: This is the same env var as Kgateway.
 # Use "ghcr.io/kgateway-dev" for upstream.
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-"danehans"}
-# SVC_TYPE defines the type of Service to use for Gateway resources.
-SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
 # PULL_POLICY defines the pull policy for the Kgateway container image.
 PULL_POLICY=${PULL_POLICY:-"IfNotPresent"}
 
@@ -93,7 +91,6 @@ helm upgrade --install kgateway "$HELM_CHART" \
   --set controller.image.pullPolicy="$PULL_POLICY" \
   --set inferenceExtension.enabled="$INF_EXT" \
   --set inferenceExtension.autoProvision="$autoProvision" \
-  --set gatewayClass.service.type="$SVC_TYPE" \
   --version "$KGTW_VERSION"
 
 # Wait for the gloo deployment rollout to complete.

@@ -10,6 +10,8 @@ HF_TOKEN=${HF_TOKEN:-""}
 NUM_REPLICAS=${NUM_REPLICAS:-3}
 # PROC_TYPE defines the processor type to use for vLLM, either "cpu" or "gpu" (default).
 PROC_TYPE=${PROC_TYPE:-"gpu"}
+# SVC_TYPE defines the type of Service to use for the Gateway resource.
+SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
 
 # Check if required CLI tools are installed.
 for cmd in kubectl helm; do
@@ -194,6 +196,41 @@ manage_model_resources() {
   fi
 }
 
+# Create or delete the Kubernetes gatewayparams resource
+manage_gwp_resource() {
+  echo "Managing Kubernetes GatewayParams resource with action: $action"
+  kubectl -n kgateway-system $action -f - <<EOF
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: GatewayParameters
+metadata:
+  name: kgateway-inference
+  namespace: kgateway-system
+spec:
+  kube:
+    service:
+      type: $SVC_TYPE
+EOF
+}
+
+# Create or delete the Kubernetes gatewayclass resource
+manage_gc_resource() {
+  echo "Managing Kubernetes GatewayClass resource with action: $action"
+  kubectl $action -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: kgateway-inference
+spec:
+  controllerName: kgateway.dev/kgateway
+  description: kgateway controller
+  parametersRef:
+    group: gateway.kgateway.dev
+    kind: GatewayParameters
+    name: kgateway-inference
+    namespace: kgateway-system
+EOF
+}
+
 # Create or delete the Kubernetes gateway resource
 manage_gtw_resource() {
   echo "Managing Kubernetes Gateway resource with action: $action"
@@ -203,7 +240,7 @@ kind: Gateway
 metadata:
   name: inference-gateway
 spec:
-  gatewayClassName: kgateway
+  gatewayClassName: kgateway-inference
   listeners:
     - name: http
       protocol: HTTP
@@ -372,6 +409,10 @@ main() {
 
   manage_curl_pod
 
+  manage_gwp_resource
+
+  manage_gc_resource
+
   manage_gtw_resource
 
   manage_model_resources
@@ -383,6 +424,8 @@ main() {
   manage_httproute_resource
 
   if [ "$action" = "apply" ]; then
+    check_gatewayclass_status "kgateway-inference"
+
     # Set the EPP deployment name to check status.
     epp_deploy_name="my-pool-endpoint-picker"
     if [ "$INF_EXT_DEPLOY" != "" ]; then
