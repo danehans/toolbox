@@ -2,12 +2,13 @@
 
 set -e
 
+COMMIT_SHA=${COMMIT_SHA:-"ddc488f033"}
 # The location of the Kgateway Helm chart. Specify the full path to the tarball for local charts.
 # Use "oci://ghcr.io/kgateway-dev/charts/kgateway" for upstream.
-HELM_CHART=${HELM_CHART:-"https://github.com/danehans/toolbox/raw/refs/heads/main/charts/338661f3be-kgateway-1.0.1-dev.tgz"}
+HELM_CHART=${HELM_CHART:-"https://github.com/danehans/toolbox/raw/refs/heads/main/charts/$COMMIT_SHA-kgateway-1.0.1-dev.tgz"}
 # The location of the Kgateway CRDs Helm chart. Specify the full path to the tarball for local charts.
 # Use "oci://ghcr.io/kgateway-dev/charts/kgateway-crds" for upstream.
-HELM_CRD_CHART=${HELM_CRD_CHART:-"https://github.com/danehans/toolbox/raw/refs/heads/main/charts/338661f3be-kgateway-crds-1.0.1-dev.tgz"}
+HELM_CRD_CHART=${HELM_CRD_CHART:-"https://github.com/danehans/toolbox/raw/refs/heads/main/charts/$COMMIT_SHA-kgateway-crds-1.0.1-dev.tgz"}
 # IMAGE_REGISTRY is the registry to use for the Kgateway images. Note: This is the same env var as Kgateway.
 # Use "ghcr.io/kgateway-dev" for upstream.
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-"danehans"}

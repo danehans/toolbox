@@ -2,9 +2,6 @@
 
 set -e
 
-# Source the utility functions.
-source ./scripts/utils.sh
-
 HF_TOKEN=${HF_TOKEN:-""}
 # NUM_REPLICAS defines the number of replicas to use for the model server backend deployment.
 NUM_REPLICAS=${NUM_REPLICAS:-3}
@@ -12,6 +9,9 @@ NUM_REPLICAS=${NUM_REPLICAS:-3}
 PROC_TYPE=${PROC_TYPE:-"gpu"}
 # SVC_TYPE defines the type of Service to use for the Gateway resource.
 SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
+
+# Source the utility functions.
+source ./scripts/utils.sh
 
 # Check if required CLI tools are installed.
 for cmd in kubectl helm; do
