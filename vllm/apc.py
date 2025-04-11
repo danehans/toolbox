@@ -30,11 +30,6 @@ LONG_PROMPT = "You are a helpful assistant in recognizes the content of tables i
 | 23  | Umar Black    | 39  | Chef          | New Zealand   | umar.b@example.com     | 555-3435       | 975 Spruce St, Christchurch, NZ|
 | 24  | Victor Yellow | 43  | Engineer      | Ireland       | victor.y@example.com   | 555-5657       | 246 Willow St, Galway, IE    |
 | 25  | Wendy Orange  | 27  | Artist        | USA           | wendy.o@example.com    | 555-7879       | 135 Elm St, Denver, CO       |
-| 26  | Xavier Green  | 34  | Scientist     | Canada        | xavier.g@example.com   | 555-9091       | 357 Oak St, Montreal, QC     |
-| 27  | Yara Red      | 41  | Teacher       | UK            | yara.r@example.com     | 555-1214       | 975 Pine St, Leeds, UK       |
-| 28  | Zack Blue     | 30  | Lawyer        | Australia     | zack.b@example.com     | 555-3436       | 135 Birch St, Adelaide, SA   |
-| 29  | Amy White     | 33  | Musician      | New Zealand   | amy.w@example.com      | 555-5658       | 159 Maple St, Wellington, NZ |
-| 30  | Ben Black     | 38  | Chef          | Ireland       | ben.b@example.com      | 555-7870       | 246 Fir St, Waterford, IE    |
 """
 
 def get_generation_time(llm, sampling_params, prompts):
@@ -48,7 +43,9 @@ def get_generation_time(llm, sampling_params, prompts):
 
 # set enable_prefix_caching=True to enable APC
 llm = LLM(
-    model='lmsys/longchat-13b-16k',
+    model='meta-llama/Llama-3.1-8B-Instruct',
+    max_model_len=2048, # Added due to old GPU (g2-standard-12) in testing.
+    max_num_seqs=2, # Added due to old GPU (g2-standard-12) in testing.
     enable_prefix_caching=True
 )
 
@@ -58,13 +55,13 @@ sampling_params = SamplingParams(temperature=0, max_tokens=100)
 get_generation_time(
     llm,
     sampling_params,
-    LONG_PROMPT + "Question: what is the age of John Doe? Your answer: The age of John Doe is ",
+    LONG_PROMPT + "Question: what is the age of John Doe? Your answer: The age of John Doe is (provide only a number in your response)",
 )
 
-# Querying the age of Zack Blue
+# Querying the age of Olivia Blue
 # This query will be faster since vllm avoids computing the KV cache of LONG_PROMPT again.
 get_generation_time(
     llm,
     sampling_params,
-    LONG_PROMPT + "Question: what is the age of Zack Blue? Your answer: The age of Zack Blue is ",
+    LONG_PROMPT + "Question: what is the age of Olivia Blue? Your answer: The age of Olivia Blue is (provide only a number in your response)",
 )
