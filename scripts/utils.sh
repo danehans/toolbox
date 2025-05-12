@@ -8,9 +8,9 @@ NS=${NS:-default}
 BACKOFF_TIME=${BACKOFF_TIME:-3}
 MAX_RETRIES=${MAX_RETRIES:-15}
 # The version of Gateway API Inference Extension to use.
-INF_EXT_VERSION=${INF_EXT_VERSION:-"v0.2.0"}
+INF_EXT_VERSION=${INF_EXT_VERSION:-"v0.3.0"}
 # The version of Gateway API CRDs to install/uninstall.
-GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.2.1"}
+GATEWAY_API_VERSION=${GATEWAY_API_VERSION:-"v1.3.0"}
 # The channel of Gateway API CRDs to install
 GATEWAY_API_CHANNEL=${GATEWAY_API_CHANNEL:-"experimental"}
 # Control Gateway API CRD installation
@@ -21,7 +21,7 @@ UNINSTALL_CRDS=${UNINSTALL_CRDS:-true}
 ISTIO_VERSION=${ISTIO_VERSION:-"1.23.1"}
 # The version of Kgateway to install.
 # Use "v2.0.0-main" for upstream
-KGTW_VERSION=${KGTW_VERSION:-"1.0.1-dev"}
+KGTW_VERSION=${KGTW_VERSION:-"v2.0.0"}
 # The version of Gloo Gateway to install.
 GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"v1.18.0"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for a daemonset/deployment rollout to complete.
@@ -32,12 +32,6 @@ METAL_LB=${METAL_LB:-false}
 CURL_POD=${CURL_POD:-true}
 # INF_EXT defines whether to enable gateway API inference extensions.
 INF_EXT=${INF_EXT:-true}
-# INF_EXT_DEPLOY defines the name of the EPP deployment.
-# Options are:
-#  - "inference-gateway-ext-proc" for upstream manifest (default).
-#  - "" for Kgateway auto deployer.
-#  - Specify the name of your own inference extension deployment.
-INF_EXT_DEPLOY=${INF_EXT_DEPLOY:-"inference-gateway-ext-proc"}
 
 # Function to check if a command exists
 command_exists() {
@@ -90,17 +84,22 @@ check_gatewayclass_status() {
   echo "Checking status of GatewayClass $name..."
 
   while [ $retries -lt $MAX_RETRIES ]; do
-    # Fetch the Accepted condition status for the GatewayClass
-    accepted_status=$(kubectl get gatewayclass $name -o jsonpath='{.status.conditions[?(@.type=="Accepted")].status}')
+    # Check if GatewayClass exists before accessing its status
+    if kubectl get gatewayclass "$name" >/dev/null 2>&1; then
+      accepted_status=$(kubectl get gatewayclass "$name" -o jsonpath='{.status.conditions[?(@.type=="Accepted")].status}')
 
-    if [ "$accepted_status" == "True" ]; then
-      echo "GatewayClass $name is accepted."
-      return 0
+      if [ "$accepted_status" == "True" ]; then
+        echo "GatewayClass $name is accepted."
+        return 0
+      else
+        echo "Attempt $((retries + 1)): GatewayClass $name exists but not accepted yet. Retrying in $BACKOFF_TIME seconds..."
+      fi
     else
-      echo "Attempt $((retries + 1)): GatewayClass $name is not accepted yet. Retrying in $BACKOFF_TIME seconds..."
-      retries=$((retries + 1))
-      sleep $BACKOFF_TIME
+      echo "Attempt $((retries + 1)): GatewayClass $name not found yet. Retrying in $BACKOFF_TIME seconds..."
     fi
+
+    retries=$((retries + 1))
+    sleep $BACKOFF_TIME
   done
 
   echo "GatewayClass $name was not accepted after $MAX_RETRIES retries."

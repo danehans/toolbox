@@ -5,13 +5,16 @@ set -e
 COMMIT_SHA=${COMMIT_SHA:-"ddc488f033"}
 # The location of the Kgateway Helm chart. Specify the full path to the tarball for local charts.
 # Use "oci://ghcr.io/kgateway-dev/charts/kgateway" for upstream.
-HELM_CHART=${HELM_CHART:-"https://github.com/danehans/toolbox/raw/refs/heads/main/charts/$COMMIT_SHA-kgateway-1.0.1-dev.tgz"}
+# Use https://github.com/danehans/toolbox/raw/refs/heads/main/charts/$COMMIT_SHA-kgateway-1.0.1-dev.tgz for local dev.
+HELM_CHART=${HELM_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway"}
 # The location of the Kgateway CRDs Helm chart. Specify the full path to the tarball for local charts.
 # Use "oci://ghcr.io/kgateway-dev/charts/kgateway-crds" for upstream.
-HELM_CRD_CHART=${HELM_CRD_CHART:-"https://github.com/danehans/toolbox/raw/refs/heads/main/charts/$COMMIT_SHA-kgateway-crds-1.0.1-dev.tgz"}
+# Use "https://github.com/danehans/toolbox/raw/refs/heads/main/charts/$COMMIT_SHA-kgateway-crds-1.0.1-dev.tgz" for local dev.
+HELM_CRD_CHART=${HELM_CRD_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway-crds"}
 # IMAGE_REGISTRY is the registry to use for the Kgateway images. Note: This is the same env var as Kgateway.
 # Use "ghcr.io/kgateway-dev" for upstream.
-IMAGE_REGISTRY=${IMAGE_REGISTRY:-"danehans"}
+# Use "danehans" for local dev.
+IMAGE_REGISTRY=${IMAGE_REGISTRY:-"ghcr.io/kgateway-dev"}
 # PULL_POLICY defines the pull policy for the Kgateway container image.
 PULL_POLICY=${PULL_POLICY:-"IfNotPresent"}
 
@@ -80,18 +83,12 @@ helm upgrade --install kgateway-crds "$HELM_CRD_CHART" \
 
 echo "Installing Kgateway (version $KGTW_VERSION) in namespace 'kgateway-system'..."
 
-autoProvision=false
-if [ "$INF_EXT_DEPLOY" == "" ]; then
-  autoProvision=true
-fi
-
 # Install Kgateway.
 helm upgrade --install kgateway "$HELM_CHART" \
   -n kgateway-system \
   --set image.registry="$IMAGE_REGISTRY" \
   --set controller.image.pullPolicy="$PULL_POLICY" \
   --set inferenceExtension.enabled="$INF_EXT" \
-  --set inferenceExtension.autoProvision="$autoProvision" \
   --version "$KGTW_VERSION"
 
 # Wait for the gloo deployment rollout to complete.

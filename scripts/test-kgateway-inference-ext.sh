@@ -173,30 +173,47 @@ manage_model_resources() {
   echo "Managing Kubernetes resources for model server with action: $action"
 
   # Set the vllm deployment manifest based on the processor type.
-  url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/vllm/gpu-deployment.yaml"
+  url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/vllm/gpu-deployment.yaml"
   if [ "$PROC_TYPE" != "gpu" ]; then
-    # TODO: Transition to upstream GPU deployment.
-    url="https://gist.githubusercontent.com/danehans/d43c6b5bd706ba5ba356ec992cd31217/raw/80f004324735af51496df890ab48923ca02ca786/vllm_cpu_deployment.yaml"
+    url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/vllm/cpu-deployment.yaml"
   fi
 
-  if [ "$action" == "apply" ]; then
-    # Apply the model server resources
-    kubectl -n "$NS" apply -f "$url"
+  TMPFILE=$(mktemp)
+  trap 'rm -f "$TMPFILE"' EXIT
 
-    # Only scale if NUM_REPLICAS < 3
-    if [ "$NUM_REPLICAS" -lt 3 ] || [ "$NUM_REPLICAS" -gt 3 ]; then
-      echo "Scaling model server deployment to $NUM_REPLICAS replicas..."
-      kubectl -n "$NS" scale deploy/my-pool --replicas="$NUM_REPLICAS"
-    else
-      echo "NUM_REPLICAS is $NUM_REPLICAS, which is not less than 3. Skipping scaling."
+  if [ "$action" == "apply" ]; then
+    curl -fsSL "$url" > "$TMPFILE"
+
+    # Edit number of replicas directly in Deployment manifest only
+    yq -i 'select(.kind=="Deployment").spec.replicas = env(NUM_REPLICAS)' "$TMPFILE"
+
+    # Set imagePullPolicy to IfNotPresent
+    yq -i 'select(.kind=="Deployment").spec.template.spec.containers[] |= (select(.name=="vllm").imagePullPolicy = "IfNotPresent")' "$TMPFILE"
+
+    # Check nodes for GPU memory and modify manifest accordingly.
+    if [ "$PROC_TYPE" = "gpu" ]; then
+      GPU_NODES=$(kubectl get nodes -o jsonpath='{range .items[*]}{@.metadata.name}{"\t"}{@.metadata.labels.nvidia\.com/gpu\.memory}{"\n"}{end}' | grep '23034' | awk '{print $1}')
+
+      if [ -n "$GPU_NODES" ]; then
+        echo "Nodes with GPU memory=23034 detected:"
+        echo "$GPU_NODES"
+        echo "Adding '--max-model-len 20000' to deployment arguments."
+
+        # Inject the argument into the Deployment manifest only.
+        yq -i 'select(.kind=="Deployment").spec.template.spec.containers[] |= (select(.name=="vllm").args += ["--max-model-len","20000"])' "$TMPFILE"
+      fi
     fi
+
+    # Apply the modified manifest
+    kubectl -n "$NS" apply -f "$TMPFILE"
+
   else
     # Delete the model server resources
     kubectl -n "$NS" delete -f "$url"
   fi
 }
 
-# Create or delete the Kubernetes gatewayparams resource
+# Create or delete the Kgateway gatewayparams resource
 manage_gwp_resource() {
   echo "Managing Kubernetes GatewayParams resource with action: $action"
   kubectl -n kgateway-system $action -f - <<EOF
@@ -219,7 +236,7 @@ manage_gc_resource() {
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  name: kgateway-inference
+  name: kgateway
 spec:
   controllerName: kgateway.dev/kgateway
   description: kgateway controller
@@ -232,83 +249,29 @@ EOF
 }
 
 # Create or delete the Kubernetes gateway resource
+# Note: This Gateway differs from upstream since the ref'd GatewayClass uses a GatewayParams resource.
 manage_gtw_resource() {
   echo "Managing Kubernetes Gateway resource with action: $action"
-  kubectl -n $NS $action -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: inference-gateway
-spec:
-  gatewayClassName: kgateway-inference
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 8080
-    - name: llm-gw
-      protocol: HTTP
-      port: 8081
-EOF
+  kubectl -n $NS $action -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/gateway/kgateway/gateway.yaml
 }
 
 # Create or delete the Kubernetes InferenceModel resource.
 # TODO: Use upstream url when the manifests settle down.
 manage_infmodel_resource() {
   echo "Managing InferenceModel resource with action: $action"
-  kubectl $action -n $NS -f https://gist.githubusercontent.com/danehans/4e980e79402fbb6e6ff987c99b832dce/raw/d176cf648336d96e9b05f95645df607044d09816/inferencemodel.yaml
+  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/inferencemodel.yaml
 }
 
-# Create or delete the Kubernetes InferencePool resource.
+# Create or delete the Kubernetes InferencePool and EPP resources.
 manage_infpool_resource() {
-  if [ "$INF_EXT_DEPLOY" == "" ]; then
-    echo "Managing InferencePool with action: $action"
-    kubectl $action -n $NS -f - <<EOF
-apiVersion: inference.networking.x-k8s.io/v1alpha2
-kind: InferencePool
-metadata:
-  name: my-pool
-spec:
-  targetPortNumber: 8000
-  selector:
-    app: my-pool
-  extensionRef:
-    name: my-pool-endpoint-picker
-EOF
-  elif [ "$INF_EXT_DEPLOY" == "inference-gateway-ext-proc" ]; then
-    echo "Managing EPP Inference Extension with action: $action"
-    kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/ext_proc.yaml
-  fi
+  echo "Managing EPP Inference Extension with action: $action"
+  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/inferencepool-resources.yaml
 }
 
 # Create or delete the Kubernetes httproute resource
 manage_httproute_resource() {
   echo "Managing HTTPRoute resource..."
-  kubectl $action -n $NS -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: llm-route
-spec:
-  parentRefs:
-  - group: gateway.networking.k8s.io
-    kind: Gateway
-    name: inference-gateway
-    sectionName: llm-gw
-  rules:
-  - backendRefs:
-    - group: inference.networking.x-k8s.io
-      kind: InferencePool
-      name: my-pool
-      port: 8000
-      weight: 1
-    matches:
-    - path:
-        type: PathPrefix
-        value: /
-    timeouts:
-      backendRequest: 24h
-      request: 24h
-EOF
+  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/gateway/kgateway/httproute.yaml
 }
 
 test_kgtw_connectivity() {
@@ -364,20 +327,20 @@ test_kgtw_connectivity() {
   # Optional: Attempt a curl connectivity check
   echo "Attempting connectivity via curl..."
   curl_retries=0
-  data='{"model": "tweet-summary","prompt": "Write as if you were a critic: San Francisco","max_tokens": 100,"temperature": 0}'
+  data='{"model": "food-review","prompt": "Write as if you were a critic: San Francisco","max_tokens": 100,"temperature": 0}'
   while [ $curl_retries -lt $MAX_RETRIES ]; do
     if [ "$CURL_POD" == "true" ]; then
       echo "Using curl Pod to test connectivity..."
-      response=$(kubectl exec -n $NS po/curl -- curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
+      response=$(kubectl exec -n $NS po/curl -- curl -i "$gtw_ip:80/v1/completions" -H 'Content-Type: application/json' -d "$data")
     else
-      response=$(curl -i "$gtw_ip:8081/v1/completions" -H 'Content-Type: application/json' -d "$data")
+      response=$(curl -i "$gtw_ip:80/v1/completions" -H 'Content-Type: application/json' -d "$data")
     fi
 
     if echo "$response" | grep -q "HTTP/1.1 200 OK"; then
       echo "Connection successful! Received HTTP 200 OK."
       echo ""
       echo "Try for yourself with the following command:"
-      echo "kubectl exec po/curl -- curl -i \"$gtw_ip:8081/v1/completions\" -H 'Content-Type: application/json' -d '$data'"
+      echo "kubectl exec po/curl -- curl -i \"$gtw_ip:80/v1/completions\" -H 'Content-Type: application/json' -d '$data'"
       return 0
     else
       echo "Attempt $((retries + 1)): Did not receive HTTP 200 OK. Retrying in $BACKOFF_TIME seconds..."
@@ -424,19 +387,13 @@ main() {
   manage_httproute_resource
 
   if [ "$action" = "apply" ]; then
-    check_gatewayclass_status "kgateway-inference"
-
-    # Set the EPP deployment name to check status.
-    epp_deploy_name="my-pool-endpoint-picker"
-    if [ "$INF_EXT_DEPLOY" != "" ]; then
-      epp_deploy_name="$INF_EXT_DEPLOY"
-    fi
+    check_gatewayclass_status "kgateway"
 
     # Wait for the EPP deployment.
-    deploy_rollout_status "$epp_deploy_name" $NS
+    deploy_rollout_status "vllm-llama3-8b-instruct-epp" $NS
 
     # Wait for the model server deployment.
-    deploy_rollout_status "my-pool" $NS
+    deploy_rollout_status "vllm-llama3-8b-instruct" $NS
 
     # Should not be needed but kgtw is not properly surfacing gtw status.
     deploy_rollout_status "inference-gateway" $NS
