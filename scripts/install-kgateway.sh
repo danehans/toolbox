@@ -13,7 +13,7 @@ HELM_CHART=${HELM_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway"}
 HELM_CRD_CHART=${HELM_CRD_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway-crds"}
 # IMAGE_REGISTRY is the registry to use for the Kgateway images. Note: This is the same env var as Kgateway.
 # Use "ghcr.io/kgateway-dev" for upstream.
-# Use "danehans" for local dev.
+# Use your local registry, e.g. "danehans", for local dev.
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-"ghcr.io/kgateway-dev"}
 # PULL_POLICY defines the pull policy for the Kgateway container image.
 PULL_POLICY=${PULL_POLICY:-"IfNotPresent"}

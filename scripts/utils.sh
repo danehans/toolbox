@@ -21,7 +21,7 @@ UNINSTALL_CRDS=${UNINSTALL_CRDS:-true}
 ISTIO_VERSION=${ISTIO_VERSION:-"1.23.1"}
 # The version of Kgateway to install.
 # Use "v2.0.0-main" for upstream
-KGTW_VERSION=${KGTW_VERSION:-"v2.0.0"}
+KGTW_VERSION=${KGTW_VERSION:-"v2.0.2"}
 # The version of Gloo Gateway to install.
 GLOO_GTW_VERSION=${GLOO_GTW_VERSION:-"v1.18.0"}
 # A time unit, e.g. 1s, 2m, 3h, to wait for a daemonset/deployment rollout to complete.

@@ -271,7 +271,7 @@ manage_infpool_resource() {
 # Create or delete the Kubernetes httproute resource
 manage_httproute_resource() {
   echo "Managing HTTPRoute resource..."
-  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/$INF_EXT_VERSION/config/manifests/gateway/kgateway/httproute.yaml
+  kubectl $action -n $NS -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/gateway/kgateway/httproute.yaml
 }
 
 test_kgtw_connectivity() {
