@@ -17,6 +17,8 @@ HELM_CRD_CHART=${HELM_CRD_CHART:-"oci://ghcr.io/kgateway-dev/charts/kgateway-crd
 IMAGE_REGISTRY=${IMAGE_REGISTRY:-"ghcr.io/kgateway-dev"}
 # PULL_POLICY defines the pull policy for the Kgateway container image.
 PULL_POLICY=${PULL_POLICY:-"IfNotPresent"}
+# NS is the namespace used to install kgateway.
+NS=${NS:-"kgateway-system"}
 
 # Source the utility functions.
 source ./scripts/utils.sh
@@ -77,15 +79,15 @@ echo "Installing Kgateway CRDs (version $KGTW_VERSION)..."
 
 # Install Kgateway CRDs.
 helm upgrade --install kgateway-crds "$HELM_CRD_CHART" \
-  -n kgateway-system \
+  -n $NS \
   --create-namespace \
   --version "$KGTW_VERSION"
 
-echo "Installing Kgateway (version $KGTW_VERSION) in namespace 'kgateway-system'..."
+echo "Installing Kgateway (version $KGTW_VERSION) in namespace '$NS'..."
 
 # Install Kgateway.
 helm upgrade --install kgateway "$HELM_CHART" \
-  -n kgateway-system \
+  -n "$NS" \
   --set image.registry="$IMAGE_REGISTRY" \
   --set controller.image.pullPolicy="$PULL_POLICY" \
   --set inferenceExtension.enabled="$INF_EXT" \
