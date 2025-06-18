@@ -2,11 +2,12 @@
 
 set -e
 
-HF_TOKEN=${HF_TOKEN:-""}
 # NUM_REPLICAS defines the number of replicas to use for the model server backend deployment.
-NUM_REPLICAS=${NUM_REPLICAS:-3}
-# PROC_TYPE defines the processor type to use for vLLM, either "cpu" or "gpu" (default).
-PROC_TYPE=${PROC_TYPE:-"gpu"}
+# Use export so NUM_REPLICAS is available to the yq process.
+export NUM_REPLICAS=${NUM_REPLICAS:-3}
+HF_TOKEN=${HF_TOKEN:-""}
+# PROC_TYPE defines the processor type to use for vLLM, either "sim" (default), "cpu", or "gpu".
+PROC_TYPE=${PROC_TYPE:-"sim"}
 # SVC_TYPE defines the type of Service to use for the Gateway resource.
 SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
 
@@ -14,7 +15,7 @@ SVC_TYPE=${SVC_TYPE:-"LoadBalancer"}
 source ./scripts/utils.sh
 
 # Check if required CLI tools are installed.
-for cmd in kubectl helm; do
+for cmd in kubectl helm yq; do
   if ! command_exists $cmd; then
     echo "$cmd is not installed. Please install $cmd before running this script."
     exit 1
@@ -172,10 +173,16 @@ check_and_manage_metallb() {
 manage_model_resources() {
   echo "Managing Kubernetes resources for model server with action: $action"
 
-  # Set the vllm deployment manifest based on the processor type.
-  url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/vllm/gpu-deployment.yaml"
-  if [ "$PROC_TYPE" != "gpu" ]; then
+  # Set the vllm deployment manifest based on the processor type, defaulting to sim deployment.
+  url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/vllm/sim-deployment.yaml"
+  if [[ "$PROC_TYPE" == "gpu" ]]; then
+    echo "Using vLLM GPU deployment manifest."
+    url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/vllm/gpu-deployment.yaml"
+  elif [[ "$PROC_TYPE" == "cpu" ]]; then
+    echo "Using vLLM CPU deployment manifest."
     url="https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/heads/main/config/manifests/vllm/cpu-deployment.yaml"
+  else
+    echo "Using vLLM simulator deployment manifest."
   fi
 
   TMPFILE=$(mktemp)
@@ -382,9 +389,9 @@ main() {
 
   manage_infmodel_resource
 
-  manage_infpool_resource
-
   manage_httproute_resource
+
+  manage_infpool_resource
 
   if [ "$action" = "apply" ]; then
     check_gatewayclass_status "kgateway"
